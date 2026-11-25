@@ -156,9 +156,9 @@ pub struct VolumeHeader {
     pub data_offset: u64,
     pub backup_header_offset: u64,
     pub created_at_unix: u64,
-    pub expires_at_unix: u64,      // 0 = no Mission TTL expiration
-    pub max_failed_attempts: u32,  // 0 = auto-shred disabled
-    pub failed_attempts: u32,      // live strike counter (excluded from MAC)
+    pub expires_at_unix: u64,     // 0 = no Mission TTL expiration
+    pub max_failed_attempts: u32, // 0 = auto-shred disabled
+    pub failed_attempts: u32,     // live strike counter (excluded from MAC)
     pub key_slots: [KeySlot; MAX_KEY_SLOTS],
     pub header_mac: [u8; TAG_SIZE],
 }

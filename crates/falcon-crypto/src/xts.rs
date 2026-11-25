@@ -125,7 +125,10 @@ mod tests {
     #[test]
     fn rejects_identical_keys() {
         let k = [0xAAu8; 32];
-        assert!(matches!(XtsCipher::new(&k, &k), Err(CryptoError::IdenticalXtsKeys)));
+        assert!(matches!(
+            XtsCipher::new(&k, &k),
+            Err(CryptoError::IdenticalXtsKeys)
+        ));
         assert!(matches!(
             XtsCipher::new_cascade(&[1u8; 32], &[2u8; 32], &k, &k),
             Err(CryptoError::IdenticalXtsKeys)

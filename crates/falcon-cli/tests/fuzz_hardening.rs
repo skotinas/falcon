@@ -169,11 +169,32 @@ fn fuzz_sealed_drop_identity_and_bundle_parsers() {
     }
 
     // 2. Mutate a valid sealed drop at every critical boundary & verify 100% rejection
-    let (valid_pkg, _, _) =
-        seal_package(&alice, &bob_pub, "intel.dat", b"sensitive payload 12345", true).unwrap();
+    let (valid_pkg, _, _) = seal_package(
+        &alice,
+        &bob_pub,
+        "intel.dat",
+        b"sensitive payload 12345",
+        true,
+    )
+    .unwrap();
     assert!(unseal_package(&bob, Some(&alice_pub), &valid_pkg).is_ok());
 
-    for pos in [0, 7, 8, 12, 24, 56, 88, 120, 132, 900, 1700, 1708, valid_pkg.len() - 65, valid_pkg.len() - 1] {
+    for pos in [
+        0,
+        7,
+        8,
+        12,
+        24,
+        56,
+        88,
+        120,
+        132,
+        900,
+        1700,
+        1708,
+        valid_pkg.len() - 65,
+        valid_pkg.len() - 1,
+    ] {
         let mut mutated = valid_pkg.clone();
         mutated[pos] ^= 0x40;
         assert!(
@@ -222,12 +243,78 @@ fn fuzz_shamir_parser_and_combiner_edge_cases() {
     // Pathological manually-built Share structs passed to combine_shares
     let bad_sets = vec![
         vec![],
-        vec![Share { index: 1, threshold: 0, data: vec![1, 2] }, Share { index: 2, threshold: 0, data: vec![3, 4] }],
-        vec![Share { index: 1, threshold: 1, data: vec![1, 2] }, Share { index: 2, threshold: 1, data: vec![3, 4] }],
-        vec![Share { index: 1, threshold: 2, data: vec![] }, Share { index: 2, threshold: 2, data: vec![] }],
-        vec![Share { index: 0, threshold: 2, data: vec![1] }, Share { index: 2, threshold: 2, data: vec![2] }],
-        vec![Share { index: 1, threshold: 2, data: vec![1] }, Share { index: 1, threshold: 2, data: vec![2] }],
-        vec![Share { index: 1, threshold: 2, data: vec![1, 2] }, Share { index: 2, threshold: 2, data: vec![3] }],
+        vec![
+            Share {
+                index: 1,
+                threshold: 0,
+                data: vec![1, 2],
+            },
+            Share {
+                index: 2,
+                threshold: 0,
+                data: vec![3, 4],
+            },
+        ],
+        vec![
+            Share {
+                index: 1,
+                threshold: 1,
+                data: vec![1, 2],
+            },
+            Share {
+                index: 2,
+                threshold: 1,
+                data: vec![3, 4],
+            },
+        ],
+        vec![
+            Share {
+                index: 1,
+                threshold: 2,
+                data: vec![],
+            },
+            Share {
+                index: 2,
+                threshold: 2,
+                data: vec![],
+            },
+        ],
+        vec![
+            Share {
+                index: 0,
+                threshold: 2,
+                data: vec![1],
+            },
+            Share {
+                index: 2,
+                threshold: 2,
+                data: vec![2],
+            },
+        ],
+        vec![
+            Share {
+                index: 1,
+                threshold: 2,
+                data: vec![1],
+            },
+            Share {
+                index: 1,
+                threshold: 2,
+                data: vec![2],
+            },
+        ],
+        vec![
+            Share {
+                index: 1,
+                threshold: 2,
+                data: vec![1, 2],
+            },
+            Share {
+                index: 2,
+                threshold: 2,
+                data: vec![3],
+            },
+        ],
     ];
     for set in bad_sets {
         assert!(combine_shares(&set).is_err());

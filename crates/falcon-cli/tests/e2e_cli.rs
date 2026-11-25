@@ -199,7 +199,11 @@ fn full_cli_lifecycle() {
 
     // Flip 1 bit in data region and verify tamper detection triggers.
     {
-        let mut f = OpenOptions::new().read(true).write(true).open(&vault).unwrap();
+        let mut f = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&vault)
+            .unwrap();
         f.seek(SeekFrom::Start(64 * 1024)).unwrap();
         let mut b = [0u8; 1];
         f.read_exact(&mut b).unwrap();
@@ -281,7 +285,11 @@ fn ultimate_v2_cascade_pq_stealth_shamir_duress_diag() {
     assert!(split_out.status.success());
     let share_lines: Vec<String> = String::from_utf8_lossy(&split_out.stdout)
         .lines()
-        .filter_map(|l| l.split("FLCN-S1-").nth(1).map(|rest| format!("FLCN-S1-{rest}")))
+        .filter_map(|l| {
+            l.split("FLCN-S1-")
+                .nth(1)
+                .map(|rest| format!("FLCN-S1-{rest}"))
+        })
         .collect();
     assert_eq!(share_lines.len(), 5);
 
@@ -508,7 +516,10 @@ fn comsec_v3_post_hidden_custody_sanitize_qr_and_dead_mans_switch() {
         .unwrap()
         .success());
     let cleaned_jpg = fs::read(&jpg_out).unwrap();
-    assert!(!cleaned_jpg.windows(3).any(|w| w == b"GPS"), "EXIF GPS was not stripped!");
+    assert!(
+        !cleaned_jpg.windows(3).any(|w| w == b"GPS"),
+        "EXIF GPS was not stripped!"
+    );
 
     // 4. Verify Ed25519 hash-chained Chain-of-Custody log
     let cust = Command::new(falcon_bin())
@@ -594,7 +605,10 @@ fn comsec_v3_post_hidden_custody_sanitize_qr_and_dead_mans_switch() {
         .status()
         .unwrap()
         .success());
-    assert_eq!(fs::read(&secret_inner_out).unwrap(), b"plausible-deniability-payload");
+    assert_eq!(
+        fs::read(&secret_inner_out).unwrap(),
+        b"plausible-deniability-payload"
+    );
 
     // 6. Air-Gapped Printable SVG QR Keycards via Shamir split --qr-dir
     assert!(Command::new(falcon_bin())
@@ -625,10 +639,18 @@ fn comsec_v3_post_hidden_custody_sanitize_qr_and_dead_mans_switch() {
     }
     let after_auto_shred = Command::new(falcon_bin())
         .env("OUTER_PW", "decoy-pass-01")
-        .args(["ls", vault.to_str().unwrap(), "--passphrase-env", "OUTER_PW"])
+        .args([
+            "ls",
+            vault.to_str().unwrap(),
+            "--passphrase-env",
+            "OUTER_PW",
+        ])
         .status()
         .unwrap();
-    assert!(!after_auto_shred.success(), "volume must be auto-shredded after 3 strikes");
+    assert!(
+        !after_auto_shred.success(),
+        "volume must be auto-shredded after 3 strikes"
+    );
 
     let _ = fs::remove_dir_all(&dir);
 }

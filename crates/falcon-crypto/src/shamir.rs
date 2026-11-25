@@ -45,7 +45,9 @@ impl Share {
             .parse()
             .map_err(|_| CryptoError::ShamirError("invalid share threshold".into()))?;
         if index == 0 || threshold < 2 {
-            return Err(CryptoError::ShamirError("invalid index or threshold".into()));
+            return Err(CryptoError::ShamirError(
+                "invalid index or threshold".into(),
+            ));
         }
         let data = hex::decode(parts[4])
             .map_err(|_| CryptoError::ShamirError("invalid share hex payload".into()))?;
@@ -169,7 +171,9 @@ pub fn combine_shares(shares: &[Share]) -> Result<Vec<u8>> {
     let used = &shares[..threshold];
     for (i, s) in used.iter().enumerate() {
         if s.index == 0 || s.data.len() != len || s.threshold as usize != threshold {
-            return Err(CryptoError::ShamirError("inconsistent share metadata".into()));
+            return Err(CryptoError::ShamirError(
+                "inconsistent share metadata".into(),
+            ));
         }
         for other in &used[i + 1..] {
             if s.index == other.index {
@@ -228,10 +232,12 @@ mod tests {
         let parsed: Vec<Share> = encoded.iter().map(|s| Share::parse(s).unwrap()).collect();
 
         // Any 3 shares recover exact secret
-        let rec1 = combine_shares(&[parsed[0].clone(), parsed[2].clone(), parsed[4].clone()]).unwrap();
+        let rec1 =
+            combine_shares(&[parsed[0].clone(), parsed[2].clone(), parsed[4].clone()]).unwrap();
         assert_eq!(rec1.as_slice(), &secret);
 
-        let rec2 = combine_shares(&[parsed[1].clone(), parsed[3].clone(), parsed[4].clone()]).unwrap();
+        let rec2 =
+            combine_shares(&[parsed[1].clone(), parsed[3].clone(), parsed[4].clone()]).unwrap();
         assert_eq!(rec2.as_slice(), &secret);
 
         // Fewer than 3 shares rejected

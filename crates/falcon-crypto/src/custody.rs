@@ -88,8 +88,8 @@ pub fn parse_custody_jsonl(raw: &str) -> Result<Vec<CustodyEntry>> {
         if trimmed.is_empty() {
             continue;
         }
-        let entry: CustodyEntry = serde_json::from_str(trimmed)
-            .map_err(|_| CryptoError::IntegrityCheckFailed)?;
+        let entry: CustodyEntry =
+            serde_json::from_str(trimmed).map_err(|_| CryptoError::IntegrityCheckFailed)?;
         entries.push(entry);
     }
     Ok(entries)

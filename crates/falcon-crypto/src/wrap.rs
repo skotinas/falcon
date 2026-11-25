@@ -162,7 +162,10 @@ pub fn build_duress_payload(volume_uuid: &[u8; 16]) -> SecureArray<MASTER_SECRET
     SecureArray::from_mut_array(&mut raw)
 }
 
-pub fn is_duress_payload(unwrapped: &SecureArray<MASTER_SECRET_SIZE>, volume_uuid: &[u8; 16]) -> bool {
+pub fn is_duress_payload(
+    unwrapped: &SecureArray<MASTER_SECRET_SIZE>,
+    volume_uuid: &[u8; 16],
+) -> bool {
     let expected = duress_sentinel(volume_uuid);
     bool::from(unwrapped.as_slice()[..32].ct_eq(&expected))
 }

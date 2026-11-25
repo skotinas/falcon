@@ -155,7 +155,7 @@ mod tests {
     fn strips_jpeg_exif_and_com_segments() {
         let mut jpg = Vec::new();
         jpg.extend_from_slice(&[0xFF, 0xD8]); // SOI
-        // APP1 EXIF segment with fake GPS string
+                                              // APP1 EXIF segment with fake GPS string
         let exif = b"Exif\0\0GPS:37.9838N,23.7275E";
         jpg.extend_from_slice(&[0xFF, 0xE1]);
         jpg.extend_from_slice(&((exif.len() + 2) as u16).to_be_bytes());
@@ -184,7 +184,7 @@ mod tests {
         png.extend_from_slice(&0u32.to_be_bytes());
         png.extend_from_slice(b"IHDR");
         png.extend_from_slice(&[0, 0, 0, 0]); // CRC
-        // tEXt ancillary chunk with operator info
+                                              // tEXt ancillary chunk with operator info
         let txt = b"Author\0Operator-Alpha";
         png.extend_from_slice(&(txt.len() as u32).to_be_bytes());
         png.extend_from_slice(b"tEXt");

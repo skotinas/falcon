@@ -223,7 +223,11 @@ pub fn seal_package(
     let cek = derive_drop_cek(&pq_ss, &salt)?;
 
     let created_at_unix = if opsec_sanitize { 0 } else { unix_now() };
-    let flags = if opsec_sanitize { SEAL_FLAG_SANITIZED } else { 0 };
+    let flags = if opsec_sanitize {
+        SEAL_FLAG_SANITIZED
+    } else {
+        0
+    };
     let sender_vk = sender.verifying_key().to_bytes();
     let recipient_hash = recipient.key_hash();
 
@@ -449,11 +453,7 @@ fn sanitize_callsign(s: &str) -> String {
 }
 
 fn sanitize_filename(name: &str) -> String {
-    let base = name
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or("drop.bin")
-        .trim();
+    let base = name.rsplit(['/', '\\']).next().unwrap_or("drop.bin").trim();
     let cleaned: String = base
         .chars()
         .filter(|c| !c.is_control() && *c != '/' && *c != '\\')
@@ -483,8 +483,10 @@ mod tests {
 
         // Round-trip serialization of identity & public bundle
         let alpha_loaded = OperatorIdentity::from_bytes(&alpha.to_bytes()).unwrap();
-        let bravo_pub = OperatorPublicBundle::from_bytes(&bravo.public_bundle().to_bytes()).unwrap();
-        let alpha_pub = OperatorPublicBundle::from_bytes(&alpha.public_bundle().to_bytes()).unwrap();
+        let bravo_pub =
+            OperatorPublicBundle::from_bytes(&bravo.public_bundle().to_bytes()).unwrap();
+        let alpha_pub =
+            OperatorPublicBundle::from_bytes(&alpha.public_bundle().to_bytes()).unwrap();
 
         assert_eq!(alpha_loaded.callsign, "ALPHA-1");
         assert_eq!(bravo_pub.callsign, "BRAVO-2");

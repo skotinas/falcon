@@ -169,11 +169,15 @@ impl Inode {
             return Ok(Self::empty());
         }
         if src[0] != 1 {
-            return Err(FsError::CorruptedMetadata("bad inode state flag".to_string()));
+            return Err(FsError::CorruptedMetadata(
+                "bad inode state flag".to_string(),
+            ));
         }
         let path_len = u16::from_le_bytes(src[2..4].try_into().unwrap()) as usize;
         if path_len == 0 || path_len > MAX_PATH_BYTES {
-            return Err(FsError::CorruptedMetadata("bad inode path length".to_string()));
+            return Err(FsError::CorruptedMetadata(
+                "bad inode path length".to_string(),
+            ));
         }
         let file_size = u64::from_le_bytes(src[4..12].try_into().unwrap());
         let created_at = u64::from_le_bytes(src[12..20].try_into().unwrap());
@@ -282,8 +286,9 @@ impl<D: BlockDevice> FalconFs<D> {
         for i in 0..self.sb.inode_sectors {
             self.volume.read_sector(self.sb.inode_start + i, &mut sec)?;
             for j in 0..INODES_PER_SECTOR {
-                let raw: &[u8; INODE_SIZE] =
-                    sec[j * INODE_SIZE..(j + 1) * INODE_SIZE].try_into().unwrap();
+                let raw: &[u8; INODE_SIZE] = sec[j * INODE_SIZE..(j + 1) * INODE_SIZE]
+                    .try_into()
+                    .unwrap();
                 let inode = Inode::deserialize(raw)?;
                 if inode.in_use && inode.path != CUSTODY_LOG_PATH {
                     files.push(FileEntry {
@@ -500,7 +505,9 @@ impl<D: BlockDevice> FalconFs<D> {
         while cur != 0 && remaining > 0 {
             hops += 1;
             if hops > self.sb.total_sectors {
-                return Err(FsError::CorruptedMetadata("cyclic extent chain".to_string()));
+                return Err(FsError::CorruptedMetadata(
+                    "cyclic extent chain".to_string(),
+                ));
             }
             if cur < self.sb.data_start || cur >= self.sb.total_sectors {
                 return Err(FsError::CorruptedMetadata(
@@ -652,8 +659,9 @@ impl<D: BlockDevice> FalconFs<D> {
         for i in 0..self.sb.inode_sectors {
             self.volume.read_sector(self.sb.inode_start + i, &mut sec)?;
             for j in 0..INODES_PER_SECTOR {
-                let raw: &[u8; INODE_SIZE] =
-                    sec[j * INODE_SIZE..(j + 1) * INODE_SIZE].try_into().unwrap();
+                let raw: &[u8; INODE_SIZE] = sec[j * INODE_SIZE..(j + 1) * INODE_SIZE]
+                    .try_into()
+                    .unwrap();
                 let inode = Inode::deserialize(raw)?;
                 if inode.in_use && inode.path == norm_path {
                     sec.zeroize();
@@ -780,8 +788,13 @@ mod tests {
             max_failed_attempts: 0,
             label: "fs-test".to_string(),
         };
-        let vol =
-            Volume::create(dev, &opts, &AuthMaterial::password_only(b"fs-pass"), |_, _| {}).unwrap();
+        let vol = Volume::create(
+            dev,
+            &opts,
+            &AuthMaterial::password_only(b"fs-pass"),
+            |_, _| {},
+        )
+        .unwrap();
         FalconFs::format(vol).unwrap()
     }
 
@@ -819,7 +832,11 @@ mod tests {
             Err(FsError::NotFound(_))
         ));
 
-        assert!(fs.volume_mut().verify_all_sectors(|_, _| {}).unwrap().is_clean());
+        assert!(fs
+            .volume_mut()
+            .verify_all_sectors(|_, _| {})
+            .unwrap()
+            .is_clean());
     }
 
     #[test]

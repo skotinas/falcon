@@ -49,7 +49,10 @@ pub enum VolumeError {
     NoFreeKeySlot,
 
     #[error("volume too small: need at least {min_bytes} bytes, got {requested_bytes}")]
-    VolumeTooSmall { min_bytes: u64, requested_bytes: u64 },
+    VolumeTooSmall {
+        min_bytes: u64,
+        requested_bytes: u64,
+    },
 
     #[error("hidden volume error: {0}")]
     HiddenVolume(String),

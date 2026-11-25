@@ -69,10 +69,8 @@ fn unlock_pages(ptr: *const u8, len: usize) {
 
     #[cfg(windows)]
     unsafe {
-        let _ = windows_sys::Win32::System::Memory::VirtualUnlock(
-            ptr as *const core::ffi::c_void,
-            len,
-        );
+        let _ =
+            windows_sys::Win32::System::Memory::VirtualUnlock(ptr as *const core::ffi::c_void, len);
     }
 }
 

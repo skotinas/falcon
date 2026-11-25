@@ -257,8 +257,8 @@ pub fn run_ui(
     post_report: PostReport,
 ) -> Result<()> {
     let bind_addr = format!("127.0.0.1:{port}");
-    let server = Server::http(&bind_addr)
-        .map_err(|e| anyhow!("failed to bind {bind_addr}: {e}"))?;
+    let server =
+        Server::http(&bind_addr).map_err(|e| anyhow!("failed to bind {bind_addr}: {e}"))?;
 
     let token = hex::encode(random_bytes::<32>());
     let url = format!("http://{bind_addr}/?token={token}");
@@ -719,7 +719,9 @@ fn api_keygen(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
     write_secret_0600(&out_path, &buf)?;
     buf.zeroize();
 
-    Ok(json_ok(&serde_json::json!({ "ok": true, "path": body.path })))
+    Ok(json_ok(
+        &serde_json::json!({ "ok": true, "path": body.path }),
+    ))
 }
 
 fn api_pq_keygen(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
@@ -756,7 +758,10 @@ fn api_unlock(
     if let Some(ref wp) = usb_watch {
         if !wp.exists() {
             body.passphrase.zeroize();
-            bail!("USB Kill-Switch path '{}' does not currently exist", wp.display());
+            bail!(
+                "USB Kill-Switch path '{}' does not currently exist",
+                wp.display()
+            );
         }
     }
 
@@ -898,9 +903,8 @@ fn api_upload(
     } else {
         let entry = s.fs.put_file(&vault_path, Cursor::new(&data))?;
         data.zeroize();
-        let _ = s
-            .fs
-            .append_custody_event("PUT", &format!("{} ({}B)", entry.path, entry.size));
+        let _ =
+            s.fs.append_custody_event("PUT", &format!("{} ({}B)", entry.path, entry.size));
         (entry, None)
     };
 
@@ -912,10 +916,7 @@ fn api_upload(
     })))
 }
 
-fn api_download(
-    query: &str,
-    state: &Arc<Mutex<AppState>>,
-) -> Result<Response<Cursor<Vec<u8>>>> {
+fn api_download(query: &str, state: &Arc<Mutex<AppState>>) -> Result<Response<Cursor<Vec<u8>>>> {
     let path = query_param(query, "path").ok_or_else(|| anyhow!("missing path param"))?;
     let mut guard = state.lock().unwrap();
     let s = guard.active_mut()?;
@@ -969,10 +970,8 @@ fn api_verify(state: &Arc<Mutex<AppState>>) -> Result<Response<Cursor<Vec<u8>>>>
     let r = s.fs.volume_mut().verify_all_sectors(|_, _| {})?;
     let uuid = s.fs.volume().header().uuid_hex();
     let cipher = s.fs.volume().header().cipher_mode().display_name();
-    let _ = s.fs.append_custody_event(
-        "VERIFY",
-        if r.is_clean() { "PASS" } else { "TAMPER_ALERT" },
-    );
+    let _ =
+        s.fs.append_custody_event("VERIFY", if r.is_clean() { "PASS" } else { "TAMPER_ALERT" });
     Ok(json_ok(&serde_json::json!({
         "uuid": uuid,
         "cipher_mode": cipher,
@@ -1018,15 +1017,13 @@ fn api_keyslot_add(
         keyfile_hash: kf_hash.as_ref().map(|k| k.as_array()),
         pq_keypair: pq_kp.as_ref(),
     };
-    let res = s
-        .fs
-        .volume_mut()
-        .add_keyslot(None, &auth, &profile.params(), &body.label);
+    let res =
+        s.fs.volume_mut()
+            .add_keyslot(None, &auth, &profile.params(), &body.label);
     body.passphrase.zeroize();
     let slot = res?;
-    let _ = s
-        .fs
-        .append_custody_event("KEYSLOT_ADD", &format!("slot={slot} label={}", body.label));
+    let _ =
+        s.fs.append_custody_event("KEYSLOT_ADD", &format!("slot={slot} label={}", body.label));
     Ok(json_ok(&serde_json::json!({ "slot": slot })))
 }
 
@@ -1042,10 +1039,9 @@ fn api_duress_add(
     let mut guard = state.lock().unwrap();
     let s = guard.active_mut()?;
     let auth = AuthMaterial::password_only(body.passphrase.as_bytes());
-    let res = s
-        .fs
-        .volume_mut()
-        .add_duress_slot(None, &auth, &profile.params(), &body.label);
+    let res =
+        s.fs.volume_mut()
+            .add_duress_slot(None, &auth, &profile.params(), &body.label);
     body.passphrase.zeroize();
     let slot = res?;
     Ok(json_ok(&serde_json::json!({ "slot": slot })))
@@ -1059,9 +1055,8 @@ fn api_keyslot_remove(
     let mut guard = state.lock().unwrap();
     let s = guard.active_mut()?;
     s.fs.volume_mut().remove_keyslot(body.slot)?;
-    let _ = s
-        .fs
-        .append_custody_event("KEYSLOT_REVOKE", &format!("slot={}", body.slot));
+    let _ =
+        s.fs.append_custody_event("KEYSLOT_REVOKE", &format!("slot={}", body.slot));
     Ok(json_ok(&serde_json::json!({ "ok": true })))
 }
 
@@ -1088,15 +1083,13 @@ fn api_passwd(
         keyfile_hash: new_kf.as_ref().map(|k| k.as_array()),
         pq_keypair: new_pq.as_ref(),
     };
-    let res = s
-        .fs
-        .volume_mut()
-        .change_slot_passphrase(slot, &auth, new_params.as_ref());
+    let res =
+        s.fs.volume_mut()
+            .change_slot_passphrase(slot, &auth, new_params.as_ref());
     body.new_passphrase.zeroize();
     res?;
-    let _ = s
-        .fs
-        .append_custody_event("PASSWD_ROTATE", &format!("slot={slot}"));
+    let _ =
+        s.fs.append_custody_event("PASSWD_ROTATE", &format!("slot={slot}"));
     Ok(json_ok(&serde_json::json!({ "ok": true, "slot": slot })))
 }
 
@@ -1104,14 +1097,12 @@ fn api_header_repair(state: &Arc<Mutex<AppState>>) -> Result<Response<Cursor<Vec
     let mut guard = state.lock().unwrap();
     let s = guard.active_mut()?;
     s.fs.volume_mut().persist_headers()?;
-    let _ = s.fs.append_custody_event("HEADER_REPAIR", "re-signed & synced");
+    let _ =
+        s.fs.append_custody_event("HEADER_REPAIR", "re-signed & synced");
     Ok(json_ok(&serde_json::json!({ "ok": true })))
 }
 
-fn api_shred(
-    req: &mut Request,
-    state: &Arc<Mutex<AppState>>,
-) -> Result<Response<Cursor<Vec<u8>>>> {
+fn api_shred(req: &mut Request, state: &Arc<Mutex<AppState>>) -> Result<Response<Cursor<Vec<u8>>>> {
     let body: ShredReq = read_json(req)?;
     if body.confirm != "SHRED" {
         bail!("confirmation must be 'SHRED'");
@@ -1218,8 +1209,7 @@ fn api_diag_benchmark(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
 
 fn api_diag_entropy(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
     let body: EntropyReq = read_json(req)?;
-    let f = File::open(&body.path)
-        .with_context(|| format!("failed to open '{}'", body.path))?;
+    let f = File::open(&body.path).with_context(|| format!("failed to open '{}'", body.path))?;
     let mut sample = Vec::new();
     f.take(4 * 1024 * 1024).read_to_end(&mut sample)?;
     let ent = analyze_entropy(&sample);
@@ -1290,14 +1280,22 @@ fn api_seal(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
     let from_id_path = PathBuf::from(body.from_id_path.trim());
     let out_path = PathBuf::from(body.out_path.trim());
 
-    let mut sender_raw = fs::read(&from_id_path)
-        .with_context(|| format!("failed to open sender identity '{}'", from_id_path.display()))?;
+    let mut sender_raw = fs::read(&from_id_path).with_context(|| {
+        format!(
+            "failed to open sender identity '{}'",
+            from_id_path.display()
+        )
+    })?;
     let sender = OperatorIdentity::from_bytes(&sender_raw);
     sender_raw.zeroize();
     let sender = sender?;
 
-    let recip_raw = fs::read(&to_pub_path)
-        .with_context(|| format!("failed to open recipient bundle '{}'", to_pub_path.display()))?;
+    let recip_raw = fs::read(&to_pub_path).with_context(|| {
+        format!(
+            "failed to open recipient bundle '{}'",
+            to_pub_path.display()
+        )
+    })?;
     let recipient = OperatorPublicBundle::from_bytes(&recip_raw)?;
 
     let mut plaintext = fs::read(&input_path)
@@ -1352,8 +1350,9 @@ fn api_unseal(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
 
     let expected_sender = match clean_opt_path(body.expect_sender_path.as_deref()) {
         Some(p) => {
-            let raw = fs::read(&p)
-                .with_context(|| format!("failed to open expected sender bundle '{}'", p.display()))?;
+            let raw = fs::read(&p).with_context(|| {
+                format!("failed to open expected sender bundle '{}'", p.display())
+            })?;
             Some(OperatorPublicBundle::from_bytes(&raw)?)
         }
         None => None,
@@ -1370,6 +1369,11 @@ fn api_unseal(req: &mut Request) -> Result<Response<Cursor<Vec<u8>>>> {
         .truncate(true)
         .open(&out_path)
         .with_context(|| format!("failed to write '{}'", out_path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = of.set_permissions(std::fs::Permissions::from_mode(0o600));
+    }
     of.write_all(&drop.plaintext)?;
     of.sync_all()?;
 

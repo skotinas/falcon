@@ -155,12 +155,7 @@ impl<D: BlockDevice> Volume<D> {
             expires_at_unix: opts.expires_at_unix,
             max_failed_attempts: opts.max_failed_attempts,
             failed_attempts: 0,
-            key_slots: [
-                slot0,
-                KeySlot::empty(),
-                KeySlot::empty(),
-                KeySlot::empty(),
-            ],
+            key_slots: [slot0, KeySlot::empty(), KeySlot::empty(), KeySlot::empty()],
             header_mac: [0u8; TAG_SIZE],
         };
 
@@ -274,12 +269,7 @@ impl<D: BlockDevice> Volume<D> {
             expires_at_unix: 0,
             max_failed_attempts: 0,
             failed_attempts: 0,
-            key_slots: [
-                slot0,
-                KeySlot::empty(),
-                KeySlot::empty(),
-                KeySlot::empty(),
-            ],
+            key_slots: [slot0, KeySlot::empty(), KeySlot::empty(), KeySlot::empty()],
             header_mac: [0u8; TAG_SIZE],
         };
 
@@ -690,41 +680,40 @@ impl<D: BlockDevice> Volume<D> {
         let detached = self.detached_header_path.is_some();
         let hidden = self.hidden_binding.is_some();
 
-        let (primary_header_ok, backup_header_ok, headers_identical) =
-            if let Some(ref hb) = self.hidden_binding {
-                let mut raw = [0u8; HEADER_SIZE];
-                let ok = self
-                    .device
-                    .read_exact_at(hb.base_offset + SECTOR_SIZE as u64, &mut raw)
-                    .is_ok()
-                    && {
-                        apply_hidden_header_mask(&hb.mask_key, &hb.mask_salt, &mut raw);
-                        VolumeHeader::verify_raw_mac(&raw, self.keys.header_mac_key()).is_ok()
-                    };
-                (ok, true, true)
-            } else if let Some(ref hdr_path) = self.detached_header_path {
-                let ok = read_detached_header(hdr_path)
-                    .and_then(|raw| VolumeHeader::verify_raw_mac(&raw, self.keys.header_mac_key()))
-                    .is_ok();
-                (ok, true, true)
-            } else {
-                let mut raw_primary = [0u8; HEADER_SIZE];
-                let mut raw_backup = [0u8; HEADER_SIZE];
+        let (primary_header_ok, backup_header_ok, headers_identical) = if let Some(ref hb) =
+            self.hidden_binding
+        {
+            let mut raw = [0u8; HEADER_SIZE];
+            let ok = self
+                .device
+                .read_exact_at(hb.base_offset + SECTOR_SIZE as u64, &mut raw)
+                .is_ok()
+                && {
+                    apply_hidden_header_mask(&hb.mask_key, &hb.mask_salt, &mut raw);
+                    VolumeHeader::verify_raw_mac(&raw, self.keys.header_mac_key()).is_ok()
+                };
+            (ok, true, true)
+        } else if let Some(ref hdr_path) = self.detached_header_path {
+            let ok = read_detached_header(hdr_path)
+                .and_then(|raw| VolumeHeader::verify_raw_mac(&raw, self.keys.header_mac_key()))
+                .is_ok();
+            (ok, true, true)
+        } else {
+            let mut raw_primary = [0u8; HEADER_SIZE];
+            let mut raw_backup = [0u8; HEADER_SIZE];
 
-                let p_ok = self.device.read_exact_at(0, &mut raw_primary).is_ok()
-                    && VolumeHeader::verify_raw_mac(&raw_primary, self.keys.header_mac_key())
-                        .is_ok();
+            let p_ok = self.device.read_exact_at(0, &mut raw_primary).is_ok()
+                && VolumeHeader::verify_raw_mac(&raw_primary, self.keys.header_mac_key()).is_ok();
 
-                let b_ok = self
-                    .device
-                    .read_exact_at(self.header.backup_header_offset, &mut raw_backup)
-                    .is_ok()
-                    && VolumeHeader::verify_raw_mac(&raw_backup, self.keys.header_mac_key())
-                        .is_ok();
+            let b_ok = self
+                .device
+                .read_exact_at(self.header.backup_header_offset, &mut raw_backup)
+                .is_ok()
+                && VolumeHeader::verify_raw_mac(&raw_backup, self.keys.header_mac_key()).is_ok();
 
-                let same = bool::from(raw_primary.ct_eq(&raw_backup));
-                (p_ok, b_ok, same)
-            };
+            let same = bool::from(raw_primary.ct_eq(&raw_backup));
+            (p_ok, b_ok, same)
+        };
 
         let total = self.header.data_sector_count;
         let mut corrupted = Vec::new();
@@ -978,7 +967,8 @@ impl<D: BlockDevice> Volume<D> {
             if total >= HEADER_SIZE as u64 {
                 device.write_all_at(0, &wipe)?;
             }
-            if backup_offset >= HEADER_SIZE as u64 && backup_offset + (HEADER_SIZE as u64) <= total {
+            if backup_offset >= HEADER_SIZE as u64 && backup_offset + (HEADER_SIZE as u64) <= total
+            {
                 OsRng.fill_bytes(&mut wipe);
                 device.write_all_at(backup_offset, &wipe)?;
             }
@@ -1180,8 +1170,12 @@ fn try_unlock_raw_header(
             continue;
         }
 
-        let classical_kek =
-            derive_kek(auth.passphrase, auth.keyfile_hash, &slot.salt, &slot.kdf_params)?;
+        let classical_kek = derive_kek(
+            auth.passphrase,
+            auth.keyfile_hash,
+            &slot.salt,
+            &slot.kdf_params,
+        )?;
         let effective_kek = if slot.pq_hybrid {
             let kp = auth.pq_keypair.ok_or(VolumeError::AuthenticationFailed)?;
             let ct = slot
@@ -1205,9 +1199,12 @@ fn try_unlock_raw_header(
             slot.pq_ciphertext.as_deref(),
         );
 
-        if let Ok(unwrapped) =
-            unwrap_master_secret(&effective_kek, &slot.nonce, &aad, &slot.wrapped_master_secret)
-        {
+        if let Ok(unwrapped) = unwrap_master_secret(
+            &effective_kek,
+            &slot.nonce,
+            &aad,
+            &slot.wrapped_master_secret,
+        ) {
             if is_duress_payload(&unwrapped, &header.volume_uuid) {
                 return Ok(UnlockOutcome::DuressTriggered);
             }
@@ -1290,7 +1287,10 @@ mod tests {
         // Open hidden volume cleanly with hidden passphrase
         let mut hidden = Volume::open_hidden(backing, &hidden_auth, None).unwrap();
         assert!(hidden.is_hidden());
-        assert_eq!(hidden.header().cipher_mode(), CipherMode::CascadeAesSerpentXts);
+        assert_eq!(
+            hidden.header().cipher_mode(),
+            CipherMode::CascadeAesSerpentXts
+        );
 
         let pt = [0x99u8; SECTOR_SIZE];
         hidden.write_sector(1, &pt).unwrap();
@@ -1309,8 +1309,13 @@ mod tests {
         let real = AuthMaterial::password_only(b"right-pass");
         let wrong = AuthMaterial::password_only(b"wrong-pass");
 
-        let _vol = Volume::create(dev, &test_opts(512 * 1024, false, None, 0, 3), &real, |_, _| {})
-            .unwrap();
+        let _vol = Volume::create(
+            dev,
+            &test_opts(512 * 1024, false, None, 0, 3),
+            &real,
+            |_, _| {},
+        )
+        .unwrap();
 
         // Strike 1 & 2 -> AuthenticationFailed
         for _ in 0..2 {
@@ -1349,7 +1354,9 @@ mod tests {
         let backing = vol.device;
         assert!(matches!(
             Volume::open(backing, &auth, None),
-            Err(VolumeError::VolumeExpired { expires_at_unix: 1000 })
+            Err(VolumeError::VolumeExpired {
+                expires_at_unix: 1000
+            })
         ));
     }
 

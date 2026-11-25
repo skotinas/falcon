@@ -560,7 +560,9 @@ fn main() -> Result<()> {
                 new_passphrase_env.as_deref(),
                 &auth,
             ),
-            KeyslotAction::Remove { volume, slot, auth } => cmd_keyslot_remove(&volume, slot, &auth),
+            KeyslotAction::Remove { volume, slot, auth } => {
+                cmd_keyslot_remove(&volume, slot, &auth)
+            }
         },
         Commands::Duress {
             volume,
@@ -726,7 +728,10 @@ fn cmd_create(
 
     println!("Created Falcon volume: {}", volume_path.display());
     println!("  UUID:        {uuid}");
-    println!("  Cipher:      {} (4096-byte sectors)", cipher_mode.display_name());
+    println!(
+        "  Cipher:      {} (4096-byte sectors)",
+        cipher_mode.display_name()
+    );
     println!(
         "  Integrity:   {}",
         if integrity_enabled {
@@ -806,7 +811,8 @@ fn cmd_hidden_create(
         let dev = FileBlockDevice::open_rw(outer_volume, outer_auth.raw_device)?;
         let hidden_vol = Volume::open_hidden(dev, &hidden_auth, outer_auth.header.as_deref())?;
         let mut hidden_fs = FalconFs::format(hidden_vol)?;
-        let _ = hidden_fs.append_custody_event("CREATE_HIDDEN", "plausible-deniability inner volume");
+        let _ =
+            hidden_fs.append_custody_event("CREATE_HIDDEN", "plausible-deniability inner volume");
     }
 
     // Re-sync outer BLAKE3 MACs after hidden FS metadata was written so outer verify stays clean
@@ -981,19 +987,26 @@ fn cmd_put(
     Ok(())
 }
 
-fn cmd_get(
-    volume_path: &Path,
-    vault_path: &str,
-    local_dest: &Path,
-    auth: &AuthArgs,
-) -> Result<()> {
+fn cmd_get(volume_path: &Path, vault_path: &str, local_dest: &Path, auth: &AuthArgs) -> Result<()> {
     let vol = unlock_volume(volume_path, auth)?;
     let mut fs = FalconFs::mount(vol)?;
 
     let out_file = File::create(local_dest)
         .with_context(|| format!("failed to create '{}'", local_dest.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = out_file.set_permissions(std::fs::Permissions::from_mode(0o600));
+    }
 
-    let entry = fs.get_file(vault_path, out_file)?;
+    let entry = match fs.get_file(vault_path, out_file) {
+        Ok(e) => e,
+        Err(e) => {
+            // Never leave unverified or tampered plaintext on disk if integrity check fails.
+            let _ = fs::remove_file(local_dest);
+            return Err(e.into());
+        }
+    };
     let _ = fs.append_custody_event("GET", &entry.path);
     println!(
         "Extracted '{}' -> '{}' ({}) sha256={}",
@@ -1024,7 +1037,11 @@ fn cmd_verify(volume_path: &Path, auth: &AuthArgs) -> Result<()> {
     println!("Falcon Integrity Check");
     println!(
         "  Primary header: {}",
-        if report.primary_header_ok { "OK" } else { "FAILED" }
+        if report.primary_header_ok {
+            "OK"
+        } else {
+            "FAILED"
+        }
     );
     if report.hidden_volume {
         println!("  Header mode:    hidden (BLAKE3-XOF obfuscated)");
@@ -1033,11 +1050,19 @@ fn cmd_verify(volume_path: &Path, auth: &AuthArgs) -> Result<()> {
     } else {
         println!(
             "  Backup header:  {}",
-            if report.backup_header_ok { "OK" } else { "FAILED" }
+            if report.backup_header_ok {
+                "OK"
+            } else {
+                "FAILED"
+            }
         );
         println!(
             "  Headers synced: {}",
-            if report.headers_identical { "yes" } else { "no" }
+            if report.headers_identical {
+                "yes"
+            } else {
+                "no"
+            }
         );
     }
     println!(
@@ -1072,7 +1097,11 @@ fn cmd_custody_verify(volume_path: &Path, auth: &AuthArgs) -> Result<()> {
     println!("  Chain Head:    {}", report.head_hash);
     println!(
         "  Verification:  {}",
-        if report.valid { "VALID (Ed25519 + BLAKE3 chain intact)" } else { "BROKEN / TAMPERED" }
+        if report.valid {
+            "VALID (Ed25519 + BLAKE3 chain intact)"
+        } else {
+            "BROKEN / TAMPERED"
+        }
     );
     if let Some(reason) = &report.reason {
         println!("  Failure:       seq {:?} ({reason})", report.broken_at_seq);
@@ -1225,8 +1254,11 @@ fn cmd_shamir_split(
                 &encoded,
             )?;
             let card_path = dir.join(format!("falcon-share-{:02}.svg", s.index));
-            fs::write(&card_path, svg)?;
-            println!("    -> Saved printable SVG keycard: {}", card_path.display());
+            write_secret_file(&card_path, svg.as_bytes())?;
+            println!(
+                "    -> Saved printable SVG keycard: {}",
+                card_path.display()
+            );
         }
     }
     Ok(())
@@ -1350,7 +1382,10 @@ fn cmd_identity_info(file: &Path) -> Result<()> {
         return Ok(());
     }
     raw.zeroize();
-    bail!("'{}' is not a valid Falcon identity (.flcid) or public bundle (.flcpub)", file.display());
+    bail!(
+        "'{}' is not a valid Falcon identity (.flcid) or public bundle (.flcpub)",
+        file.display()
+    );
 }
 
 fn cmd_seal(
@@ -1368,8 +1403,12 @@ fn cmd_seal(
     sender_raw.zeroize();
     let sender = sender?;
 
-    let recip_raw = fs::read(to_pub)
-        .with_context(|| format!("failed to open recipient public bundle '{}'", to_pub.display()))?;
+    let recip_raw = fs::read(to_pub).with_context(|| {
+        format!(
+            "failed to open recipient public bundle '{}'",
+            to_pub.display()
+        )
+    })?;
     let recipient = OperatorPublicBundle::from_bytes(&recip_raw)?;
 
     let mut plaintext = fs::read(input)
@@ -1398,10 +1437,24 @@ fn cmd_seal(
         );
     }
     println!("Sealed Drop created: {}", out_path.display());
-    println!("  From:        {} (Ed25519 {})", sender.callsign, &meta.sender_ed25519_hex[..24]);
-    println!("  To:          {} (FP {})", recipient.callsign, meta.recipient_fingerprint);
-    println!("  Payload:     {} ({})", meta.filename, format_bytes(meta.payload_bytes as u64));
-    println!("  Package:     {} (ML-KEM-1024 + AES-256-GCM + Ed25519)", format_bytes(meta.package_bytes as u64));
+    println!(
+        "  From:        {} (Ed25519 {})",
+        sender.callsign,
+        &meta.sender_ed25519_hex[..24]
+    );
+    println!(
+        "  To:          {} (FP {})",
+        recipient.callsign, meta.recipient_fingerprint
+    );
+    println!(
+        "  Payload:     {} ({})",
+        meta.filename,
+        format_bytes(meta.payload_bytes as u64)
+    );
+    println!(
+        "  Package:     {} (ML-KEM-1024 + AES-256-GCM + Ed25519)",
+        format_bytes(meta.package_bytes as u64)
+    );
     Ok(())
 }
 
@@ -1413,7 +1466,12 @@ fn cmd_unseal(
 ) -> Result<()> {
     let mut recip_raw = Vec::new();
     File::open(identity_path)
-        .with_context(|| format!("failed to open recipient identity '{}'", identity_path.display()))?
+        .with_context(|| {
+            format!(
+                "failed to open recipient identity '{}'",
+                identity_path.display()
+            )
+        })?
         .read_to_end(&mut recip_raw)?;
     let recipient = OperatorIdentity::from_bytes(&recip_raw);
     recip_raw.zeroize();
@@ -1421,8 +1479,9 @@ fn cmd_unseal(
 
     let expected_sender = match expect_sender_path {
         Some(p) => {
-            let raw = fs::read(p)
-                .with_context(|| format!("failed to open expected sender bundle '{}'", p.display()))?;
+            let raw = fs::read(p).with_context(|| {
+                format!("failed to open expected sender bundle '{}'", p.display())
+            })?;
             Some(OperatorPublicBundle::from_bytes(&raw)?)
         }
         None => None,
@@ -1438,19 +1497,37 @@ fn cmd_unseal(
         .truncate(true)
         .open(out_path)
         .with_context(|| format!("failed to write '{}'", out_path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = out_file.set_permissions(std::fs::Permissions::from_mode(0o600));
+    }
     out_file.write_all(&drop.plaintext)?;
     out_file.sync_all()?;
 
-    println!("Unsealed Drop verified & decrypted -> {}", out_path.display());
+    println!(
+        "Unsealed Drop verified & decrypted -> {}",
+        out_path.display()
+    );
     println!("  Filename:    {}", drop.meta.filename);
-    println!("  Size:        {}", format_bytes(drop.meta.payload_bytes as u64));
-    println!("  Sender Sig:  Ed25519 {} [VERIFIED]", &drop.meta.sender_ed25519_hex[..24]);
+    println!(
+        "  Size:        {}",
+        format_bytes(drop.meta.payload_bytes as u64)
+    );
+    println!(
+        "  Sender Sig:  Ed25519 {} [VERIFIED]",
+        &drop.meta.sender_ed25519_hex[..24]
+    );
     if let Some(exp) = expected_sender {
         println!("  Pinned ID:   MATCHED ({})", exp.callsign);
     }
     println!(
         "  OPSEC Strip: {}",
-        if drop.meta.opsec_sanitized { "YES" } else { "NO" }
+        if drop.meta.opsec_sanitized {
+            "YES"
+        } else {
+            "NO"
+        }
     );
     Ok(())
 }
@@ -1471,9 +1548,18 @@ fn cmd_pq_keygen(output: &Path) -> Result<()> {
 fn cmd_diag(volume: Option<&Path>, sectors: usize) -> Result<()> {
     println!("Running Falcon crypto benchmark ({sectors} x 4 KiB sectors)...");
     let bench = run_crypto_benchmark(sectors)?;
-    println!("  AES-256-XTS:               {:>8.1} MiB/s", bench.aes_xts_mib_s);
-    println!("  Cascade AES+Serpent-XTS:   {:>8.1} MiB/s", bench.cascade_xts_mib_s);
-    println!("  BLAKE3-256 Sector MAC:     {:>8.1} MiB/s", bench.blake3_mac_mib_s);
+    println!(
+        "  AES-256-XTS:               {:>8.1} MiB/s",
+        bench.aes_xts_mib_s
+    );
+    println!(
+        "  Cascade AES+Serpent-XTS:   {:>8.1} MiB/s",
+        bench.cascade_xts_mib_s
+    );
+    println!(
+        "  BLAKE3-256 Sector MAC:     {:>8.1} MiB/s",
+        bench.blake3_mac_mib_s
+    );
 
     if let Some(vol_path) = volume {
         let f = File::open(vol_path)?;
@@ -1481,8 +1567,14 @@ fn cmd_diag(volume: Option<&Path>, sectors: usize) -> Result<()> {
         f.take(4 * 1024 * 1024).read_to_end(&mut sample)?;
         let ent = analyze_entropy(&sample);
         println!("\nEntropy & Stealth Analysis ({})", vol_path.display());
-        println!("  Sampled bytes:   {}", format_bytes(ent.sampled_bytes as u64));
-        println!("  Shannon entropy: {:.5} / 8.00000 bits/byte", ent.shannon_bits_per_byte);
+        println!(
+            "  Sampled bytes:   {}",
+            format_bytes(ent.sampled_bytes as u64)
+        );
+        println!(
+            "  Shannon entropy: {:.5} / 8.00000 bits/byte",
+            ent.shannon_bits_per_byte
+        );
         println!("  Byte mean:       {:.2} (ideal: 127.50)", ent.byte_mean);
         println!(
             "  Bucket spread:   {:.3}x .. {:.3}x",
