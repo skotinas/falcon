@@ -1,0 +1,29 @@
+[package]
+name = "falcon-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "falcon"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+falcon-crypto = { path = "../falcon-crypto" }
+falcon-fs = { path = "../falcon-fs" }
+falcon-volume = { path = "../falcon-volume" }
+hex.workspace = true
+indicatif.workspace = true
+rand.workspace = true
+rpassword.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+subtle.workspace = true
+tiny_http.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+ed25519-dalek.workspace = true

@@ -1,0 +1,3169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FALCON // CRYPTOGRAPHIC VOLUME CONTROLLER v0.4</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=8">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=8">
+<link rel="shortcut icon" href="/favicon.ico?v=8">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=8">
+<style>
+  :root,
+  [data-theme="dark"] {
+    --bg-0: #080a0c;
+    --bg-1: #0d1115;
+    --bg-2: #12171d;
+    --bg-3: #181f27;
+    --line: #212a34;
+    --line-hi: #323f4d;
+    --fg: #d8dee6;
+    --fg-dim: #7f8c9b;
+    --fg-mute: #525f6d;
+    --amber: #d49b35;
+    --amber-dim: rgba(212, 155, 53, 0.14);
+    --amber-line: rgba(212, 155, 53, 0.45);
+    --green: #3ca364;
+    --green-dim: rgba(60, 163, 100, 0.12);
+    --green-line: rgba(60, 163, 100, 0.45);
+    --green-cell: #266b43;
+    --red: #cc3d3d;
+    --red-fg: #ef7676;
+    --red-dim: rgba(204, 61, 61, 0.13);
+    --red-line: rgba(204, 61, 61, 0.52);
+    --alert-ok: #8ee0ad;
+    --alert-err: #f4a1a1;
+    --alert-warn: #efd08d;
+    --input-focus: #0a0d11;
+    --row-sep: #12171d;
+    --modal-bg: rgba(4, 6, 8, 0.78);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  [data-theme="light"] {
+    --bg-0: #e5e9ee;
+    --bg-1: #eff2f5;
+    --bg-2: #dce2e9;
+    --bg-3: #cfd7e0;
+    --line: #bcc6d1;
+    --line-hi: #8c9aab;
+    --fg: #12171e;
+    --fg-dim: #465362;
+    --fg-mute: #647385;
+    --amber: #9a6700;
+    --amber-dim: rgba(154, 103, 0, 0.12);
+    --amber-line: rgba(154, 103, 0, 0.5);
+    --green: #187942;
+    --green-dim: rgba(24, 121, 66, 0.11);
+    --green-line: rgba(24, 121, 66, 0.48);
+    --green-cell: #22864d;
+    --red: #b52424;
+    --red-fg: #9f1b1b;
+    --red-dim: rgba(181, 36, 36, 0.1);
+    --red-line: rgba(181, 36, 36, 0.5);
+    --alert-ok: #135e33;
+    --alert-err: #8c1717;
+    --alert-warn: #7c5200;
+    --input-focus: #ffffff;
+    --row-sep: #d4dce4;
+    --modal-bg: rgba(18, 23, 30, 0.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-0);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.45;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-rows: 40px 1fr 130px;
+    grid-template-columns: 244px 1fr;
+    grid-template-areas:
+      "top top"
+      "rail main"
+      "rail log";
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .topbar {
+    grid-area: top;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--line);
+    padding: 0 14px;
+    gap: 10px;
+    user-select: none;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
+  .brand:hover .brand-title { color: var(--amber); }
+  .brand svg { width: 24px; height: 24px; flex-shrink: 0; }
+  .brand-title { font-family: var(--mono); font-size: 12.5px; font-weight: 700; letter-spacing: 0.16em; color: var(--fg); }
+  .brand-sub { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--fg-mute); border-left: 1px solid var(--line); padding-left: 10px; white-space: nowrap; }
+
+  .telemetry { display: flex; align-items: center; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--fg-dim); }
+  .telemetry .kv { padding: 0 8px; border-left: 1px solid var(--line); white-space: nowrap; }
+  .telemetry .kv b { color: var(--fg); font-weight: 600; }
+
+  .top-actions { display: flex; align-items: center; gap: 6px; }
+
+  .lang-select {
+    width: auto;
+    padding: 4px 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    background: var(--bg-0);
+    color: var(--fg);
+    border: 1px solid var(--line-hi);
+    border-radius: 1px;
+    cursor: pointer;
+  }
+
+  .clock { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--fg-dim); padding: 4px 8px; border: 1px solid var(--line); background: var(--bg-0); }
+
+  .state-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 4px 8px;
+    border: 1px solid var(--line-hi);
+    background: var(--bg-2);
+    color: var(--fg-dim);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .state-tag .led { width: 6px; height: 6px; background: var(--fg-mute); }
+  .state-tag.active { border-color: var(--green-line); background: var(--green-dim); color: var(--green); }
+  .state-tag.active .led { background: var(--green); }
+
+  .rail {
+    grid-area: rail;
+    background: var(--bg-1);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow-y: auto;
+  }
+
+  .rail-section { padding: 10px 0 6px; }
+  .rail-heading { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--fg-mute); padding: 0 14px 7px; text-transform: uppercase; }
+
+  .nav-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+    color: var(--fg-dim);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: left;
+  }
+  .nav-btn:hover:not(:disabled) { background: var(--bg-2); color: var(--fg); }
+  .nav-btn.active { background: var(--bg-2); color: var(--amber); border-left-color: var(--amber); border-top-color: var(--line); border-bottom-color: var(--line); }
+  .nav-btn.danger-nav.active { color: var(--red); border-left-color: var(--red); }
+  .nav-btn:disabled { opacity: 0.34; cursor: not-allowed; }
+  .nav-idx { color: var(--fg-mute); margin-right: 8px; }
+  .nav-btn.active .nav-idx { color: var(--amber); }
+
+  .rail-target { border-top: 1px solid var(--line); padding: 10px 14px; background: var(--bg-0); font-family: var(--mono); font-size: 10.5px; }
+  .rail-target .t-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .rail-target .t-k { color: var(--fg-mute); font-size: 9.5px; letter-spacing: 0.08em; }
+  .rail-target .t-v { color: var(--fg); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 145px; }
+
+  .meter { height: 6px; background: var(--bg-2); border: 1px solid var(--line); margin-top: 7px; }
+  .meter-fill { height: 100%; background: var(--amber); width: 0%; transition: width 0.2s; }
+
+  .main { grid-area: main; overflow-y: auto; background: var(--bg-0); padding: 16px 20px; }
+
+  .view-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 9px;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .view-header h2 { font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg); }
+  .view-header .code { font-family: var(--mono); font-size: 10px; color: var(--fg-mute); letter-spacing: 0.08em; }
+
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
+
+  .pane { background: var(--bg-1); border: 1px solid var(--line); padding: 15px; position: relative; }
+  .pane::before { content: ""; position: absolute; top: -1px; left: -1px; width: 8px; height: 8px; border-top: 1px solid var(--line-hi); border-left: 1px solid var(--line-hi); pointer-events: none; }
+
+  .pane-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg);
+    padding-bottom: 9px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    gap: 8px;
+  }
+  .pane-title span { font-weight: 400; color: var(--fg-mute); font-size: 10px; }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 4px; }
+
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  .row > .fit { flex: 0 0 auto; }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 7px 9px;
+    background: var(--bg-0);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 1px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    outline: none;
+  }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.45; }
+  input:focus, select:focus, textarea:focus { border-color: var(--amber); background: var(--input-focus); }
+  input::placeholder, textarea::placeholder { color: var(--fg-mute); }
+
+  button.cmd {
+    padding: 7px 11px;
+    border-radius: 1px;
+    border: 1px solid var(--line-hi);
+    background: var(--bg-2);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.cmd:hover:not(:disabled) { background: var(--bg-3); border-color: var(--fg-dim); }
+  button.cmd:disabled { opacity: 0.38; cursor: not-allowed; }
+  button.cmd.primary { border-color: var(--amber-line); background: var(--amber-dim); color: var(--amber); }
+  button.cmd.primary:hover:not(:disabled) { background: rgba(212, 155, 53, 0.24); border-color: var(--amber); }
+  button.cmd.danger { border-color: var(--red-line); background: var(--red-dim); color: var(--red-fg); }
+  button.cmd.danger:hover:not(:disabled) { background: rgba(204, 61, 61, 0.24); border-color: var(--red); }
+  button.cmd.xs { padding: 4px 8px; font-size: 10px; }
+
+  .alert {
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    background: var(--bg-1);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    display: none;
+  }
+  .alert.show { display: block; }
+  .alert.ok { border-color: var(--green-line); border-left-color: var(--green); color: var(--alert-ok); background: var(--green-dim); }
+  .alert.err { border-color: var(--red-line); border-left-color: var(--red); color: var(--alert-err); background: var(--red-dim); }
+  .alert.warn { border-color: var(--amber-line); border-left-color: var(--amber); color: var(--alert-warn); background: var(--amber-dim); }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
+  thead th { text-align: left; padding: 7px 9px; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-mute); border-bottom: 1px solid var(--line-hi); background: var(--bg-2); font-weight: 600; }
+  tbody td { padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:hover { background: var(--bg-2); }
+  td.right, th.right { text-align: right; }
+
+  .tag { display: inline-block; padding: 2px 6px; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; border: 1px solid var(--line-hi); color: var(--fg-dim); }
+  .tag.ok { border-color: var(--green-line); color: var(--green); background: var(--green-dim); }
+  .tag.warn { border-color: var(--amber-line); color: var(--amber); background: var(--amber-dim); }
+  .tag.bad { border-color: var(--red-line); color: var(--red-fg); background: var(--red-dim); }
+
+  .ingest { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px dashed var(--line-hi); background: var(--bg-0); margin-bottom: 14px; cursor: pointer; }
+  .ingest.over { border-color: var(--amber); background: var(--amber-dim); }
+  .ingest-text { font-family: var(--mono); font-size: 11.5px; color: var(--fg-dim); }
+  .ingest-text strong { color: var(--fg); }
+
+  .audit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin: 12px 0; }
+  .metric { border: 1px solid var(--line); background: var(--bg-0); padding: 10px 12px; font-family: var(--mono); }
+  .metric .mk { font-size: 9.5px; color: var(--fg-mute); letter-spacing: 0.09em; text-transform: uppercase; }
+  .metric .mv { font-size: 14px; font-weight: 700; margin-top: 4px; color: var(--fg); }
+  .metric .mv.ok { color: var(--green); }
+  .metric .mv.bad { color: var(--red); }
+
+  .sector-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(10px, 1fr)); gap: 2px; padding: 10px; background: var(--bg-0); border: 1px solid var(--line); margin-top: 10px; }
+  .sec-cell { height: 10px; background: var(--bg-3); }
+  .sec-cell.ok { background: var(--green-cell); }
+  .sec-cell.bad { background: var(--red); }
+
+  .bench-row { margin-bottom: 12px; font-family: var(--mono); font-size: 11.5px; }
+  .bench-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .bench-bar { height: 8px; background: var(--bg-0); border: 1px solid var(--line); }
+  .bench-fill { height: 100%; background: var(--amber); width: 0%; transition: width 0.25s; }
+  .bench-fill.green { background: var(--green); }
+
+  .mono-pre { background: var(--bg-0); border: 1px solid var(--line); padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: var(--fg-dim); white-space: pre-wrap; word-break: break-all; margin-top: 10px; }
+
+  .console { grid-area: log; background: var(--bg-1); border-top: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .console-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 14px; border-bottom: 1px solid var(--line); background: var(--bg-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--fg-dim); text-transform: uppercase; }
+  .console-body { flex: 1; overflow-y: auto; padding: 5px 14px; font-family: var(--mono); font-size: 11px; line-height: 1.48; background: var(--bg-0); }
+  .log-line { display: flex; gap: 10px; }
+  .log-ts { color: var(--fg-mute); flex-shrink: 0; }
+  .log-lvl { width: 58px; flex-shrink: 0; font-weight: 700; }
+  .log-lvl.INFO { color: var(--fg-dim); }
+  .log-lvl.OK { color: var(--green); }
+  .log-lvl.WARN { color: var(--amber); }
+  .log-lvl.ERR { color: var(--red); }
+  .log-msg { color: var(--fg); word-break: break-word; }
+
+  .modal-bg { position: fixed; inset: 0; background: var(--modal-bg); display: grid; place-items: center; padding: 20px; z-index: 100; }
+  .modal { width: 100%; max-width: 600px; max-height: 74vh; background: var(--bg-1); border: 1px solid var(--line-hi); display: flex; flex-direction: column; }
+  .modal-head { padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--bg-2); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .modal-path { font-family: var(--mono); font-size: 11.5px; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal-body { overflow-y: auto; padding: 6px; background: var(--bg-0); }
+  .dir-row { display: flex; justify-content: space-between; padding: 6px 10px; font-family: var(--mono); font-size: 11.5px; cursor: pointer; border-bottom: 1px solid var(--row-sep); }
+  .dir-row:hover { background: var(--bg-2); color: var(--amber); }
+
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-dim);
+    margin: 8px 0;
+    cursor: pointer;
+    user-select: none;
+  }
+  .check-row input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--amber); cursor: pointer; }
+
+  .qr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .qr-card {
+    border: 1px solid var(--line);
+    background: var(--bg-0);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .qr-card img { width: 100%; height: auto; display: block; border: 1px solid var(--line); }
+
+  /* ENTRY GATE LAYOUT */
+  .entry-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background-color: var(--bg-0);
+    background-image:
+      linear-gradient(to right, var(--line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .entry-gate::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 38%, transparent 25%, var(--bg-0) 92%);
+  }
+  .entry-bar {
+    position: relative;
+    z-index: 2;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--fg-dim);
+  }
+  .entry-bar-left { display: flex; align-items: center; gap: 10px; }
+  .entry-dot { width: 6px; height: 6px; background: var(--green); display: inline-block; }
+  .entry-wrap {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px;
+  }
+  .entry-frame {
+    width: 100%;
+    max-width: 940px;
+    background: var(--bg-1);
+    border: 1px solid var(--line-hi);
+    position: relative;
+  }
+  .entry-frame::before, .entry-frame::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+  }
+  .entry-frame::before { top: -1px; left: -1px; border-top: 2px solid var(--amber); border-left: 2px solid var(--amber); }
+  .entry-frame::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--amber); border-right: 2px solid var(--amber); }
+
+  .entry-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-2);
+  }
+  .entry-id { display: flex; align-items: center; gap: 16px; min-width: 0; }
+  .entry-emblem {
+    width: 58px;
+    height: 58px;
+    flex-shrink: 0;
+    border: 1px solid var(--amber-line);
+    background: #0b0e11;
+    display: grid;
+    place-items: center;
+  }
+  .entry-emblem svg { width: 52px; height: 52px; }
+  .entry-title {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--fg);
+    line-height: 1.15;
+  }
+  .entry-title span { color: var(--amber); font-size: 12px; letter-spacing: 0.12em; margin-left: 8px; font-weight: 600; }
+  .entry-sub {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--fg-dim);
+    margin-top: 5px;
+  }
+  .entry-post-pill {
+    flex-shrink: 0;
+    border: 1px solid var(--green-line);
+    background: var(--green-dim);
+    color: var(--green);
+    padding: 8px 12px;
+    font-family: var(--mono);
+    text-align: right;
+  }
+  .entry-post-pill .ep-k { font-size: 9px; letter-spacing: 0.12em; opacity: 0.85; }
+  .entry-post-pill .ep-v { font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .entry-telemetry {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-0);
+    font-family: var(--mono);
+  }
+  .et-cell { padding: 10px 16px; border-right: 1px solid var(--line); }
+  .et-cell:last-child { border-right: none; }
+  .et-k { font-size: 9px; letter-spacing: 0.1em; color: var(--fg-mute); text-transform: uppercase; }
+  .et-v { font-size: 11px; font-weight: 700; color: var(--fg); margin-top: 3px; letter-spacing: 0.04em; }
+
+  .entry-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--line);
+  }
+  .entry-card {
+    background: var(--bg-1);
+    padding: 18px 20px;
+    cursor: pointer;
+    text-align: left;
+    border: none;
+    color: var(--fg);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    transition: background 0.12s;
+  }
+  .entry-card:hover { background: var(--bg-2); }
+  .entry-card:hover .ec-code { color: var(--amber); border-color: var(--amber-line); background: var(--amber-dim); }
+  .entry-card:hover .ec-arrow { color: var(--amber); transform: translateX(3px); }
+  .ec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+  .ec-code {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--fg-dim);
+    border: 1px solid var(--line-hi);
+    background: var(--bg-0);
+    padding: 2px 7px;
+  }
+  .ec-arrow { font-family: var(--mono); font-size: 13px; color: var(--fg-mute); transition: transform 0.12s, color 0.12s; }
+  .ec-title { font-family: var(--mono); font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); }
+  .ec-desc { font-family: var(--sans); font-size: 12px; color: var(--fg-dim); line-height: 1.45; }
+  .ec-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .ec-tag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; color: var(--fg-mute); border: 1px solid var(--line); padding: 1px 5px; background: var(--bg-0); }
+
+  .entry-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 13px 20px;
+    border-top: 1px solid var(--line);
+    background: var(--bg-2);
+    flex-wrap: wrap;
+  }
+  .entry-hint { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--fg-mute); }
+
+  .hidden { display: none !important; }
+  @media (max-width: 1120px) { .telemetry { display: none; } }
+  @media (max-width: 820px) {
+    .shell { grid-template-columns: 1fr; grid-template-rows: 40px auto 1fr 120px; grid-template-areas: "top" "rail" "main" "log"; }
+    .rail-target, .brand-sub { display: none; }
+    .entry-grid { grid-template-columns: 1fr; }
+    .entry-telemetry { grid-template-columns: repeat(2, 1fr); }
+    .entry-hero { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<!-- TACTICAL ENTRY GATE LAYOUT -->
+<div id="entryGate" class="entry-gate">
+  <div class="entry-bar">
+    <div class="entry-bar-left">
+      <span class="entry-dot"></span>
+      <span>FALCON // COMSEC TERMINAL v0.4.0</span>
+      <span style="color:var(--fg-mute);">|</span>
+      <span data-i18n="entry_loopback">LOOPBACK 127.0.0.1 · SESSION TOKEN AUTHENTICATED</span>
+    </div>
+    <div class="top-actions">
+      <select id="entryLangSelect" class="lang-select" onchange="setLang(this.value)" title="Language">
+        <option value="en">EN</option>
+        <option value="el">EL</option>
+        <option value="de">DE</option>
+        <option value="fr">FR</option>
+        <option value="es">ES</option>
+        <option value="it">IT</option>
+      </select>
+      <button id="btnEntryTheme" class="cmd xs" onclick="toggleTheme()">DAY</button>
+      <span id="entryClock" class="clock">00:00:00Z</span>
+    </div>
+  </div>
+
+  <div class="entry-wrap">
+    <div class="entry-frame">
+      <div class="entry-hero">
+        <div class="entry-id">
+          <div class="entry-emblem">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="64,14 114,96 86,86 64,108 42,86 14,96" fill="#d49b35"/>
+              <polygon points="64,34 86,76 64,68 42,76" fill="#0b0e11"/>
+              <polygon points="64,48 74,69 64,65 54,69" fill="#e8ecf0"/>
+            </svg>
+          </div>
+          <div>
+            <div class="entry-title">FALCON<span>COMSEC v0.4.0</span></div>
+            <div class="entry-sub">AES-256-XTS · SERPENT-256 CASCADE · ML-KEM-1024 (FIPS 203) · BLAKE3-256 · ED25519</div>
+          </div>
+        </div>
+        <div id="entryPostPill" class="entry-post-pill">
+          <div class="ep-k">FIPS 140-3 POST</div>
+          <div id="entryPostVal" class="ep-v">7/7 PASS</div>
+        </div>
+      </div>
+
+      <div class="entry-telemetry">
+        <div class="et-cell">
+          <div class="et-k" data-i18n="entry_t_post">SELF-TEST STATUS</div>
+          <div class="et-v" id="etPost" style="color:var(--green)">VERIFIED · -- ms</div>
+        </div>
+        <div class="et-cell">
+          <div class="et-k" data-i18n="entry_t_mem">MEMORY PROTECTION</div>
+          <div class="et-v">MLOCK · ZEROIZE · NO-CORE</div>
+        </div>
+        <div class="et-cell">
+          <div class="et-k" data-i18n="entry_t_usb">USB KILL-SWITCH</div>
+          <div class="et-v" id="etUsb">STANDBY (250ms)</div>
+        </div>
+        <div class="et-cell">
+          <div class="et-k" data-i18n="entry_t_net">NETWORK EXPOSURE</div>
+          <div class="et-v" style="color:var(--amber)">AIR-GAPPED · 127.0.0.1</div>
+        </div>
+      </div>
+
+      <div class="entry-grid">
+        <button class="entry-card" onclick="enterConsole('access', 'unlockPath')">
+          <div class="ec-head">
+            <span class="ec-code">01 // MOUNT</span>
+            <span class="ec-arrow">→</span>
+          </div>
+          <div>
+            <div class="ec-title" data-i18n="ec1_title">UNLOCK EXISTING VOLUME</div>
+            <div class="ec-desc" data-i18n="ec1_desc">Mount standard, detached stealth (.fhdr), or plausible-deniability hidden volumes directly into locked RAM.</div>
+          </div>
+          <div class="ec-tags">
+            <span class="ec-tag">ARGON2ID</span>
+            <span class="ec-tag">ML-KEM-1024</span>
+            <span class="ec-tag">HIDDEN / STEALTH</span>
+            <span class="ec-tag">USB WATCHDOG</span>
+          </div>
+        </button>
+
+        <button class="entry-card" onclick="enterConsole('access', 'createPath')">
+          <div class="ec-head">
+            <span class="ec-code">02 // PROVISION</span>
+            <span class="ec-arrow">→</span>
+          </div>
+          <div>
+            <div class="ec-title" data-i18n="ec2_title">CREATE ENCRYPTED VOLUME</div>
+            <div class="ec-desc" data-i18n="ec2_desc">Format a fresh sector-authenticated container with Serpent cascade, Mission TTL, Dead-Man's Switch, and Ed25519 custody.</div>
+          </div>
+          <div class="ec-tags">
+            <span class="ec-tag">AES+SERPENT</span>
+            <span class="ec-tag">BLAKE3 MAC</span>
+            <span class="ec-tag">MISSION TTL</span>
+            <span class="ec-tag">DEAD-MAN SWITCH</span>
+          </div>
+        </button>
+
+        <button class="entry-card" onclick="enterConsole('drops', 'idCallsign')">
+          <div class="ec-head">
+            <span class="ec-code">03 // COMSEC DROP</span>
+            <span class="ec-arrow">→</span>
+          </div>
+          <div>
+            <div class="ec-title" data-i18n="ec3_title">TACTICAL SEALED DROPS (.FLCPACK)</div>
+            <div class="ec-desc" data-i18n="ec3_desc">Encrypt &amp; sign files directly to another operator's public bundle without a shared passphrase. Includes OPSEC EXIF stripping.</div>
+          </div>
+          <div class="ec-tags">
+            <span class="ec-tag">ML-KEM-1024</span>
+            <span class="ec-tag">AES-256-GCM</span>
+            <span class="ec-tag">ED25519 PINNING</span>
+            <span class="ec-tag">OPSEC SANITIZE</span>
+          </div>
+        </button>
+
+        <button class="entry-card" onclick="enterConsole('shamir')">
+          <div class="ec-head">
+            <span class="ec-code">04 // SPLIT &amp; AUDIT</span>
+            <span class="ec-arrow">→</span>
+          </div>
+          <div>
+            <div class="ec-title" data-i18n="ec4_title">SHAMIR M-OF-N &amp; DIAGNOSTICS</div>
+            <div class="ec-desc" data-i18n="ec4_desc">Split recovery keys into GF(256) threshold shares with printable air-gapped QR keycards, or inspect entropy &amp; cipher throughput.</div>
+          </div>
+          <div class="ec-tags">
+            <span class="ec-tag">SHAMIR GF(256)</span>
+            <span class="ec-tag">QR KEYCARDS</span>
+            <span class="ec-tag">ENTROPY AUDIT</span>
+            <span class="ec-tag">BENCHMARK</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="entry-foot">
+        <div class="row fit" style="gap:8px; flex-wrap:wrap;">
+          <button class="cmd primary" onclick="enterConsole('access')" data-i18n="entry_btn_enter">ENTER WORKSTATION CONSOLE →</button>
+          <button class="cmd" onclick="enterConsole('diag')" data-i18n="entry_btn_diag">DIAGNOSTICS &amp; POST</button>
+          <button class="cmd" onclick="openUpdateModal()" data-i18n="btn_update">GET UPDATE</button>
+          <button class="cmd" onclick="openBugModal()" data-i18n="btn_bug">REPORT BUG</button>
+        </div>
+        <div class="row fit" style="gap:14px;">
+          <span class="entry-hint" data-i18n="entry_hint">KEYS [1-4] LAUNCH · [ENTER] CONSOLE</span>
+          <label class="check-row" style="margin:0;">
+            <input type="checkbox" id="chkSkipEntry" onchange="toggleSkipEntry(this.checked)">
+            <span data-i18n="entry_skip">SKIP ENTRY GATE</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+  <header class="topbar">
+    <div class="brand" onclick="showEntryGate()" title="Return to Entry Gate">
+      <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="64,14 114,96 86,86 64,108 42,86 14,96" fill="#d49b35"/>
+        <polygon points="64,34 86,76 64,68 42,76" fill="#0b0e11"/>
+        <polygon points="64,48 74,69 64,65 54,69" fill="#e8ecf0"/>
+      </svg>
+      <span class="brand-title">FALCON</span>
+      <span class="brand-sub" data-i18n="brand_sub">CRYPTOGRAPHIC VOLUME CONTROLLER // v0.4.0</span>
+    </div>
+
+    <div class="telemetry">
+      <div class="kv">POST <b id="postBadge" style="color:var(--green)">PASS</b></div>
+      <div class="kv">CIPHER <b>AES+SERPENT</b></div>
+      <div class="kv">PQ <b>ML-KEM-1024</b></div>
+      <div class="kv">CUSTODY <b>ED25519</b></div>
+      <div class="kv">USB <b id="usbBadge">OFF</b></div>
+    </div>
+
+    <div class="top-actions">
+      <button class="cmd xs" onclick="openUpdateModal()" data-i18n="btn_update">GET UPDATE</button>
+      <button class="cmd xs" onclick="openBugModal()" data-i18n="btn_bug">REPORT BUG</button>
+      <select id="langSelect" class="lang-select" onchange="setLang(this.value)" title="Language">
+        <option value="en">EN</option>
+        <option value="el">EL</option>
+        <option value="de">DE</option>
+        <option value="fr">FR</option>
+        <option value="es">ES</option>
+        <option value="it">IT</option>
+      </select>
+      <button id="btnTheme" class="cmd xs" onclick="toggleTheme()">DAY</button>
+      <span id="zuluClock" class="clock">00:00:00Z</span>
+      <div id="stateTag" class="state-tag"><span class="led"></span><span id="stateText">LOCKED</span></div>
+      <button id="btnTopLock" class="cmd danger xs hidden" onclick="lockVolume()" data-i18n="lock_zeroize">LOCK / ZEROIZE</button>
+    </div>
+  </header>
+
+  <aside class="rail">
+    <div class="rail-section">
+      <div class="rail-heading" data-i18n="modules">MODULES</div>
+      <button class="nav-btn active" data-view="access" onclick="selectView('access')">
+        <span class="nav-idx">01</span><span data-i18n="nav_access">VOLUME ACCESS</span>
+      </button>
+      <button class="nav-btn" data-view="files" id="navFiles" onclick="selectView('files')" disabled>
+        <span class="nav-idx">02</span><span data-i18n="nav_files">VAULT STORAGE</span>
+      </button>
+      <button class="nav-btn" data-view="audit" id="navAudit" onclick="selectView('audit')" disabled>
+        <span class="nav-idx">03</span><span data-i18n="nav_audit">INTEGRITY AUDIT</span>
+      </button>
+      <button class="nav-btn" data-view="keys" id="navKeys" onclick="selectView('keys')" disabled>
+        <span class="nav-idx">04</span><span data-i18n="nav_keys">KEY SLOTS &amp; DURESS</span>
+      </button>
+      <button class="nav-btn" data-view="shamir" onclick="selectView('shamir')">
+        <span class="nav-idx">05</span><span data-i18n="nav_shamir">SHAMIR M-OF-N</span>
+      </button>
+      <button class="nav-btn" data-view="diag" onclick="selectView('diag')">
+        <span class="nav-idx">06</span><span data-i18n="nav_diag">DIAGNOSTICS</span>
+      </button>
+      <button class="nav-btn" data-view="drops" onclick="selectView('drops')">
+        <span class="nav-idx">07</span><span data-i18n="nav_drops">SEALED DROPS</span>
+      </button>
+      <button class="nav-btn danger-nav" data-view="shred" id="navShred" onclick="selectView('shred')" disabled>
+        <span class="nav-idx">08</span><span data-i18n="nav_shred">CRYPTO-SHRED</span>
+      </button>
+    </div>
+
+    <div class="rail-target">
+      <div class="rail-heading" style="padding:0 0 7px 0;" data-i18n="active_target">ACTIVE TARGET</div>
+      <div class="t-row"><span class="t-k" data-i18n="rt_status">STATUS</span><span class="t-v" id="rtState">DISCONNECTED</span></div>
+      <div class="t-row"><span class="t-k" data-i18n="rt_cipher">CIPHER</span><span class="t-v" id="rtCipher">-</span></div>
+      <div class="t-row"><span class="t-k">UUID</span><span class="t-v" id="rtUuid">-</span></div>
+      <div class="t-row"><span class="t-k" data-i18n="rt_slot">SLOT</span><span class="t-v" id="rtSlot">-</span></div>
+      <div class="t-row"><span class="t-k" data-i18n="rt_sectors">SECTORS</span><span class="t-v" id="rtSectors">-</span></div>
+      <div class="t-row"><span class="t-k" data-i18n="rt_alloc">ALLOC</span><span class="t-v" id="rtAlloc">-</span></div>
+      <div class="meter"><div id="rtMeter" class="meter-fill"></div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="alertBox" class="alert"></div>
+
+    <!-- 01: VOLUME ACCESS -->
+    <section id="view-access">
+      <div class="view-header">
+        <h2 data-i18n="h_access">01 // VOLUME ACCESS &amp; PROVISIONING</h2>
+        <span class="code" data-i18n="h_access_sub">AES-XTS · CASCADE SERPENT · ML-KEM-1024 · STEALTH DETACHED</span>
+      </div>
+
+      <div class="split">
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="unlock_title">MOUNT / UNLOCK EXISTING VOLUME</div><span data-i18n="auth_req">AUTH REQUIRED</span></div>
+          <div class="field">
+            <label data-i18n="lbl_vol_path">TARGET VOLUME PATH</label>
+            <div class="row">
+              <input id="unlockPath" placeholder="/tmp/falcon-test/vault.flc">
+              <button class="cmd fit" onclick="openPicker('unlockPath', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_pass">PASSPHRASE</label>
+            <input id="unlockPass" type="password" autocomplete="off" data-i18n-ph="ph_pass" placeholder="Enter slot passphrase">
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_kf_opt">2FA KEYFILE PATH (OPTIONAL)</label>
+            <div class="row">
+              <input id="unlockKeyfile" data-i18n-ph="ph_kf" placeholder="Optional .key file">
+              <button class="cmd fit" onclick="openPicker('unlockKeyfile', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_pq_opt">ML-KEM-1024 PQ KEYPAIR (OPTIONAL)</label>
+            <div class="row">
+              <input id="unlockPqKey" placeholder="Optional .pqkey file (FIPS 203)">
+              <button class="cmd fit" onclick="openPicker('unlockPqKey', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_detached_opt">DETACHED STEALTH HEADER (OPTIONAL)</label>
+            <div class="row">
+              <input id="unlockHeader" placeholder="Optional .fhdr stealth header">
+              <button class="cmd fit" onclick="openPicker('unlockHeader', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>USB KILL-SWITCH WATCHDOG PATH (OPTIONAL · 250MS)</label>
+            <div class="row">
+              <input id="unlockUsbWatch" placeholder="e.g. /Volumes/USB_KEY/token.key">
+              <button class="cmd fit" onclick="openPicker('unlockUsbWatch', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="unlockHidden">
+            <span>OPEN HIDDEN VOLUME (PLAUSIBLE DENIABILITY INNER VAULT)</span>
+          </label>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnUnlock" class="cmd primary" onclick="unlockVolume()" data-i18n="btn_unlock">UNLOCK INTO RAM</button>
+            <button class="cmd fit" onclick="inspectHeader()" data-i18n="btn_inspect">INSPECT HEADER</button>
+          </div>
+          <div id="infoBox" class="mono-pre hidden"></div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="create_title">INITIALIZE NEW ENCRYPTED VOLUME</div><span>v3 COMSEC</span></div>
+          <div class="field">
+            <label data-i18n="lbl_dest_path">DESTINATION PATH</label>
+            <div class="row">
+              <input id="createPath" placeholder="/tmp/falcon-test/vault.flc">
+              <button class="cmd fit" onclick="openPicker('createPath', 'dir')" data-i18n="btn_dir">DIR</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label data-i18n="lbl_cap">DATA CAPACITY</label>
+              <select id="createSize">
+                <option value="8M">8 MiB (2,048 sectors)</option>
+                <option value="16M" selected>16 MiB (4,096 sectors)</option>
+                <option value="64M">64 MiB (16,384 sectors)</option>
+                <option value="256M">256 MiB (65,536 sectors)</option>
+                <option value="1G">1 GiB (262,144 sectors)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="lbl_cipher_mode">CIPHER MODE</label>
+              <select id="createCipher">
+                <option value="aes" selected>AES-256-XTS (STANDARD)</option>
+                <option value="cascade">AES-256 + SERPENT-256 CASCADE</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label data-i18n="lbl_kdf">ARGON2ID KDF PROFILE</label>
+              <select id="createProfile">
+                <option value="interactive" selected>INTERACTIVE · 64 MiB</option>
+                <option value="standard">STANDARD · 256 MiB</option>
+                <option value="paranoid">PARANOID · 512 MiB</option>
+                <option value="fast-test">FAST-TEST · 16 MiB</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="lbl_slot_label">PRIMARY SLOT LABEL</label>
+              <input id="createLabel" value="primary">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label data-i18n="lbl_pass">PASSPHRASE</label>
+              <input id="createPass" type="password" autocomplete="off">
+            </div>
+            <div class="field">
+              <label data-i18n="lbl_confirm_pass">CONFIRM PASSPHRASE</label>
+              <input id="createPass2" type="password" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_kf_opt">2FA KEYFILE PATH (OPTIONAL)</label>
+            <div class="row">
+              <input id="createKeyfile" data-i18n-ph="ph_kf" placeholder="Optional .key file">
+              <button class="cmd fit" onclick="generateKeyfile()" data-i18n="btn_keygen">KEYGEN 64B</button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_pq_opt">ML-KEM-1024 PQ KEYPAIR (OPTIONAL · CNSA 2.0)</label>
+            <div class="row">
+              <input id="createPqKey" placeholder="Optional .pqkey file">
+              <button class="cmd fit" onclick="generatePqKey()" data-i18n="btn_pq_keygen">PQ-KEYGEN</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>MISSION TTL (HOURS · 0 = NONE)</label>
+              <input id="createTtl" type="number" min="0" value="0">
+            </div>
+            <div class="field">
+              <label>DEAD-MAN AUTO-SHRED STRIKES (0 = OFF)</label>
+              <input id="createMaxAttempts" type="number" min="0" max="50" value="0">
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_detached_opt">DETACHED STEALTH HEADER (ZERO MAGIC IN VOLUME)</label>
+            <input id="createHeader" placeholder="Leave empty for attached header, or e.g. /tmp/vault.fhdr">
+          </div>
+          <div class="row" style="margin-top:12px;">
+            <button id="btnCreate" class="cmd primary" onclick="createVolume()" data-i18n="btn_create">FORMAT &amp; MOUNT</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02: VAULT STORAGE -->
+    <section id="view-files" class="hidden">
+      <div class="view-header">
+        <h2 data-i18n="h_files">02 // ENCRYPTED VAULT STORAGE</h2>
+        <span class="code" id="filesHeaderPath">-</span>
+      </div>
+
+      <div class="pane">
+        <div class="row" style="margin-bottom:12px;">
+          <div class="field" style="margin-bottom:0;">
+            <label data-i18n="lbl_prefix">TARGET SUBDIRECTORY PREFIX (OPTIONAL)</label>
+            <input id="uploadPrefix" placeholder="ops/briefings">
+          </div>
+          <div class="fit" style="align-self:flex-end;">
+            <button class="cmd" onclick="refreshFiles()" data-i18n="btn_refresh">REFRESH</button>
+          </div>
+        </div>
+
+        <label class="check-row" style="margin-bottom:10px;">
+          <input type="checkbox" id="opsecSanitize" checked>
+          <span>OPSEC SANITIZER — STRIP JPEG EXIF/GPS &amp; PNG METADATA + ZERO INODE TIMESTAMPS</span>
+        </label>
+
+        <div id="dropzone" class="ingest" onclick="document.getElementById('fileInput').click()">
+          <div class="ingest-text"><strong data-i18n="ingest_head">INGEST FILES</strong> — <span data-i18n="ingest_sub">Drop payload here or click to select files for sector encryption</span></div>
+          <span class="tag warn">XTS + BLAKE3 + SHA-256</span>
+          <input id="fileInput" type="file" multiple class="hidden">
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="th_path">VAULT PATH</th>
+              <th data-i18n="th_size">SIZE</th>
+              <th data-i18n="th_sha">SHA-256 DIGEST</th>
+              <th class="right" data-i18n="th_ops">OPERATIONS</th>
+            </tr>
+          </thead>
+          <tbody id="filesBody">
+            <tr><td colspan="4" style="color:var(--fg-mute)" data-i18n="no_files">NO OBJECTS STORED IN VOLUME</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="hiddenProvisionPane" class="pane" style="margin-top:14px;">
+        <div class="pane-title"><div>PLAUSIBLE DENIABILITY — PROVISION HIDDEN VOLUME</div><span>UPPER FREE HALF · ZERO MAGIC</span></div>
+        <p style="font-family:var(--mono); font-size:11px; color:var(--fg-dim); margin-bottom:11px;">
+          Creates an independent encrypted inner volume inside the unallocated upper half of this decoy volume. Its 16 KiB header is BLAKE3-XOF obfuscated and outer MACs are refreshed so decoy verification stays 100% clean.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>HIDDEN CIPHER</label>
+            <select id="hidCipher">
+              <option value="aes">AES-256-XTS</option>
+              <option value="cascade" selected>AES-256 + SERPENT-256 CASCADE</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>HIDDEN KDF PROFILE</label>
+            <select id="hidProfile">
+              <option value="interactive" selected>INTERACTIVE · 64 MiB</option>
+              <option value="standard">STANDARD · 256 MiB</option>
+              <option value="paranoid">PARANOID · 512 MiB</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>HIDDEN PASSPHRASE</label>
+            <input id="hidPass" type="password" autocomplete="off">
+          </div>
+        </div>
+        <button class="cmd primary" onclick="createHiddenVolume()">CREATE HIDDEN VOLUME IN UPPER HALF</button>
+      </div>
+    </section>
+
+    <!-- 03: INTEGRITY AUDIT -->
+    <section id="view-audit" class="hidden">
+      <div class="view-header">
+        <h2 data-i18n="h_audit">03 // CRYPTOGRAPHIC INTEGRITY AUDIT</h2>
+        <span class="code">ENCRYPT-THEN-MAC · BLAKE3-256 PER 4096B SECTOR</span>
+      </div>
+
+      <div class="pane">
+        <div class="pane-title"><div data-i18n="audit_ctrl">VERIFICATION CONTROLS</div><span data-i18n="full_scan">FULL SURFACE SCAN</span></div>
+        <div class="row" style="max-width:620px;">
+          <button id="btnRunAudit" class="cmd primary" onclick="runVerify()" data-i18n="btn_audit">EXECUTE FULL AUDIT</button>
+          <button class="cmd" onclick="repairHeaders()" data-i18n="btn_repair">REPAIR / SYNC HEADERS</button>
+          <button id="btnExportAudit" class="cmd" onclick="exportAuditReport()" disabled data-i18n="btn_export">EXPORT REPORT (.JSON)</button>
+        </div>
+
+        <div id="auditMetrics" class="audit-grid hidden">
+          <div class="metric"><div class="mk" data-i18n="m_prim">PRIMARY HEADER MAC</div><div class="mv" id="mPrim">-</div></div>
+          <div class="metric"><div class="mk" data-i18n="m_back">BACKUP HEADER MAC</div><div class="mv" id="mBack">-</div></div>
+          <div class="metric"><div class="mk" data-i18n="m_sync">HEADER SYNC</div><div class="mv" id="mSync">-</div></div>
+          <div class="metric"><div class="mk" data-i18n="m_sec">VERIFIED SECTORS</div><div class="mv" id="mSectors">-</div></div>
+        </div>
+
+        <div id="sectorMapWrap" class="hidden">
+          <div class="rail-heading" style="padding:8px 0 0 0;" data-i18n="sector_map_lbl">SECTOR INTEGRITY MATRIX (GREEN: AUTH OK · RED: TAMPER)</div>
+          <div id="sectorMap" class="sector-map"></div>
+        </div>
+
+        <div id="auditDetail" class="mono-pre hidden"></div>
+      </div>
+
+      <div class="pane" style="margin-top:14px;">
+        <div class="pane-title"><div>ED25519 CHAIN-OF-CUSTODY AUDIT TRAIL</div><span id="custodyStatusBadge">UNVERIFIED</span></div>
+        <div class="row" style="max-width:460px; margin-bottom:10px;">
+          <button class="cmd primary" onclick="loadCustodyLog()">VERIFY &amp; LOAD CUSTODY CHAIN</button>
+          <button id="btnExportCustody" class="cmd" onclick="exportCustodyJson()" disabled>EXPORT SIGNED JSON</button>
+        </div>
+        <div id="custodyPubBox" class="mono-pre hidden" style="margin-top:0; margin-bottom:10px;"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>SEQ</th>
+              <th>UTC TIMESTAMP</th>
+              <th>SLOT</th>
+              <th>EVENT</th>
+              <th>DETAIL</th>
+              <th>ED25519 SIG</th>
+            </tr>
+          </thead>
+          <tbody id="custodyBody">
+            <tr><td colspan="6" style="color:var(--fg-mute)">CLICK VERIFY TO LOAD SIGNED CUSTODY TRAIL</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 04: KEY SLOTS & DURESS -->
+    <section id="view-keys" class="hidden">
+      <div class="view-header">
+        <h2 data-i18n="h_keys">04 // KEY SLOTS &amp; DURESS PROTOCOL</h2>
+        <span class="code">512-BIT MASTER SECRET · PQ HYBRID · SILENT DURESS</span>
+      </div>
+
+      <div class="pane" style="margin-bottom:14px;">
+        <div class="pane-title"><div data-i18n="slots_title">CONFIGURED KEY SLOTS</div><span>0..3</span></div>
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="th_slot">SLOT</th>
+              <th data-i18n="th_state">STATE</th>
+              <th data-i18n="th_label">LABEL</th>
+              <th data-i18n="th_kdf">KDF PARAMETERS</th>
+              <th data-i18n="th_factors">FACTORS</th>
+              <th class="right" data-i18n="th_action">ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="slotTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="split">
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="add_slot_title">PROVISION SECONDARY / PQ RECOVERY SLOT</div></div>
+          <div class="field"><label data-i18n="th_label">LABEL</label><input id="slotLabel" value="recovery"></div>
+          <div class="field">
+            <label data-i18n="lbl_kdf">KDF PROFILE</label>
+            <select id="slotProfile">
+              <option value="interactive" selected>INTERACTIVE · 64 MiB</option>
+              <option value="standard">STANDARD · 256 MiB</option>
+              <option value="paranoid">PARANOID · 512 MiB</option>
+            </select>
+          </div>
+          <div class="field"><label data-i18n="lbl_pass">PASSPHRASE</label><input id="slotPass" type="password"></div>
+          <div class="field"><label data-i18n="lbl_kf_opt">2FA KEYFILE (OPTIONAL)</label><input id="slotKeyfile" placeholder="Optional .key"></div>
+          <div class="field"><label data-i18n="lbl_pq_opt">ML-KEM-1024 PQ KEYPAIR (OPTIONAL)</label><input id="slotPqKey" placeholder="Optional .pqkey"></div>
+          <button class="cmd primary" onclick="addKeyslot()" data-i18n="btn_add_slot">PROVISION KEY SLOT</button>
+        </div>
+
+        <div class="pane" style="border-color: var(--red-line);">
+          <div class="pane-title" style="color:var(--red-fg);"><div data-i18n="duress_title">PROVISION SILENT DURESS / PANIC SLOT</div><span>ZERO FORENSIC MARKER</span></div>
+          <p data-i18n="duress_desc" style="font-family:var(--mono); font-size:11px; color:var(--fg-dim); margin-bottom:11px;">
+            Indistinguishable from a normal active slot on disk. Entering this passphrase at unlock silently executes 3-pass CSPRNG crypto-shredding of all headers and returns a normal auth error.
+          </p>
+          <div class="field"><label data-i18n="lbl_decoy_label">DECOY LABEL</label><input id="duressLabel" value="backup-ops"></div>
+          <div class="field">
+            <label data-i18n="lbl_kdf">KDF PROFILE</label>
+            <select id="duressProfile">
+              <option value="interactive" selected>INTERACTIVE · 64 MiB</option>
+              <option value="standard">STANDARD · 256 MiB</option>
+              <option value="paranoid">PARANOID · 512 MiB</option>
+            </select>
+          </div>
+          <div class="field"><label data-i18n="lbl_duress_pass">DURESS / PANIC PASSPHRASE</label><input id="duressPass" type="password"></div>
+          <button class="cmd danger" onclick="addDuressSlot()" data-i18n="btn_add_duress">ARM DURESS SLOT</button>
+        </div>
+      </div>
+
+      <div class="pane" style="margin-top:14px;">
+        <div class="pane-title"><div data-i18n="rot_title">ROTATE ACTIVE SLOT CREDENTIALS</div></div>
+        <div class="split">
+          <div>
+            <div class="field"><label data-i18n="lbl_new_pass">NEW PASSPHRASE</label><input id="rotPass" type="password"></div>
+            <div class="field"><label data-i18n="lbl_confirm_pass">CONFIRM PASSPHRASE</label><input id="rotPass2" type="password"></div>
+          </div>
+          <div>
+            <div class="field"><label data-i18n="lbl_new_kf">NEW KEYFILE (EMPTY = NONE)</label><input id="rotKeyfile" placeholder="Optional .key"></div>
+            <div class="field"><label data-i18n="lbl_pq_opt">NEW PQ KEYPAIR (EMPTY = NONE)</label><input id="rotPqKey" placeholder="Optional .pqkey"></div>
+          </div>
+        </div>
+        <button class="cmd" onclick="rotatePassphrase()" data-i18n="btn_rot">ROTATE CREDENTIALS</button>
+      </div>
+    </section>
+
+    <!-- 05: SHAMIR M-OF-N -->
+    <section id="view-shamir" class="hidden">
+      <div class="view-header">
+        <h2 data-i18n="h_shamir">05 // SHAMIR SECRET SHARING (M-OF-N)</h2>
+        <span class="code">CONSTANT-TIME GF(256) · BLAKE3-CHECKSUMMED SHARES</span>
+      </div>
+
+      <div class="split">
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="shamir_split_title">SPLIT RECOVERY KEY INTO SHARES</div><span>M-OF-N</span></div>
+          <div class="row">
+            <div class="field">
+              <label data-i18n="lbl_threshold">THRESHOLD (M REQUIRED)</label>
+              <input id="shThreshold" type="number" min="2" max="16" value="3">
+            </div>
+            <div class="field">
+              <label data-i18n="lbl_total_shares">TOTAL SHARES (N)</label>
+              <input id="shTotal" type="number" min="2" max="16" value="5">
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_sh_in">EXISTING KEYFILE TO SPLIT (EMPTY = GENERATE FRESH 32B KEY)</label>
+            <div class="row">
+              <input id="shInFile" placeholder="Optional existing .key file">
+              <button class="cmd fit" onclick="openPicker('shInFile', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_sh_save">SAVE GENERATED KEYFILE TO PATH (OPTIONAL)</label>
+            <input id="shOutKey" placeholder="/tmp/falcon-test/master-recovery.key">
+          </div>
+          <button class="cmd primary" onclick="shamirSplit()" data-i18n="btn_sh_split">GENERATE M-OF-N SHARES</button>
+          <div id="shSharesOut" class="mono-pre hidden"></div>
+          <div id="shQrGrid" class="qr-grid hidden"></div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="shamir_comb_title">RECONSTRUCT KEYFILE FROM M SHARES</div><span>LAGRANGE GF(256)</span></div>
+          <div class="field">
+            <label data-i18n="lbl_sh_paste">PASTE M CHECKSUMMED SHARES (ONE PER LINE)</label>
+            <textarea id="shCombineIn" placeholder="FLCN-S1-01-03-...&#10;FLCN-S1-03-03-...&#10;FLCN-S1-05-03-..."></textarea>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_sh_out">OUTPUT RECONSTRUCTED KEYFILE PATH</label>
+            <input id="shCombineOut" placeholder="/tmp/falcon-test/reconstructed.key">
+          </div>
+          <button class="cmd primary" onclick="shamirCombine()" data-i18n="btn_sh_comb">RECONSTRUCT KEYFILE</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06: DIAGNOSTICS -->
+    <section id="view-diag" class="hidden">
+      <div class="view-header">
+        <h2 data-i18n="h_diag">06 // CRYPTO DIAGNOSTICS &amp; ENTROPY TELEMETRY</h2>
+        <span class="code">FIPS 140-3 POST · BENCHMARK · SHANNON ENTROPY</span>
+      </div>
+
+      <div class="pane" style="margin-bottom:14px;">
+        <div class="pane-title"><div>FIPS 140-3 POWER-ON SELF-TEST (POST)</div><span id="postMeta">READY</span></div>
+        <div class="row" style="max-width:260px; margin-bottom:10px;">
+          <button class="cmd primary" onclick="rerunPost()">RE-RUN FIPS 140-3 POST</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>SELF-TEST CHECK</th>
+              <th>STANDARD</th>
+              <th class="right">RESULT</th>
+            </tr>
+          </thead>
+          <tbody id="postBody"></tbody>
+        </table>
+      </div>
+
+      <div class="split">
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="bench_title">HARDWARE CIPHER BENCHMARK</div><span>4096B SECTORS</span></div>
+          <div class="field">
+            <label data-i18n="lbl_bench_sec">SAMPLE SECTORS</label>
+            <select id="benchSectors">
+              <option value="1024">1,024 sectors (4 MiB)</option>
+              <option value="2048" selected>2,048 sectors (8 MiB)</option>
+              <option value="4096">4,096 sectors (16 MiB)</option>
+            </select>
+          </div>
+          <button id="btnBench" class="cmd primary" onclick="runBenchmark()" data-i18n="btn_bench">RUN BENCHMARK</button>
+
+          <div id="benchOut" class="hidden" style="margin-top:14px;">
+            <div class="bench-row">
+              <div class="bench-head"><span>AES-256-XTS</span><b id="bAes">-</b></div>
+              <div class="bench-bar"><div id="barAes" class="bench-fill green"></div></div>
+            </div>
+            <div class="bench-row">
+              <div class="bench-head"><span>CASCADE AES-256 + SERPENT-256</span><b id="bCas">-</b></div>
+              <div class="bench-bar"><div id="barCas" class="bench-fill"></div></div>
+            </div>
+            <div class="bench-row">
+              <div class="bench-head"><span>BLAKE3-256 SECTOR MAC</span><b id="bMac">-</b></div>
+              <div class="bench-bar"><div id="barMac" class="bench-fill green"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-title"><div data-i18n="ent_title">SHANNON ENTROPY &amp; STEALTH ANALYZER</div><span>IDEAL: 8.000 BITS/BYTE</span></div>
+          <div class="field">
+            <label data-i18n="lbl_vol_path">TARGET VOLUME FILE</label>
+            <div class="row">
+              <input id="entPath" placeholder="/tmp/falcon-test/vault.flc">
+              <button class="cmd fit" onclick="openPicker('entPath', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <button id="btnEnt" class="cmd primary" onclick="runEntropy()" data-i18n="btn_ent">ANALYZE ENTROPY</button>
+
+          <div id="entMetrics" class="audit-grid hidden">
+            <div class="metric"><div class="mk">SHANNON ENTROPY</div><div class="mv" id="eScore">-</div></div>
+            <div class="metric"><div class="mk">BYTE MEAN (127.5)</div><div class="mv" id="eMean">-</div></div>
+            <div class="metric"><div class="mk">BUCKET SPREAD</div><div class="mv" id="eSpread">-</div></div>
+            <div class="metric"><div class="mk">SIGNATURE</div><div class="mv" id="eMagic">-</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07: TACTICAL SEALED DROPS -->
+    <section id="view-drops" class="hidden">
+      <div class="view-header">
+        <h2 data-i18n="h_drops">07 // TACTICAL SEALED DROPS (.FLCPACK)</h2>
+        <span class="code">ML-KEM-1024 (FIPS 203) · AES-256-GCM · ED25519 VERIFY-BEFORE-DECRYPT</span>
+      </div>
+
+      <div class="pane" style="margin-bottom:14px;">
+        <div class="pane-title"><div>OPERATOR IDENTITY GENERATOR (ML-KEM-1024 + ED25519)</div><span>ASYMMETRIC COMSEC</span></div>
+        <div class="split">
+          <div>
+            <div class="field"><label>OPERATOR CALLSIGN</label><input id="idCallsign" value="ALPHA-1" maxlength="32"></div>
+            <div class="field">
+              <label>PRIVATE IDENTITY PATH (.FLCID · MODE 0600 — KEEP SECRET)</label>
+              <input id="idPrivPath" placeholder="/tmp/falcon-test/alpha.flcid">
+            </div>
+          </div>
+          <div>
+            <div class="field">
+              <label>SHAREABLE PUBLIC BUNDLE (.FLCPUB — SAFE TO DISTRIBUTE)</label>
+              <input id="idPubPath" placeholder="/tmp/falcon-test/alpha.flcpub">
+            </div>
+            <div class="field" style="padding-top:17px;">
+              <button class="cmd primary" onclick="generateIdentity()">GENERATE OPERATOR IDENTITY</button>
+            </div>
+          </div>
+        </div>
+        <div id="idOutBox" class="mono-pre hidden"></div>
+      </div>
+
+      <div class="split">
+        <div class="pane">
+          <div class="pane-title"><div>SEAL DROP FOR RECIPIENT</div><span>ENCRYPT + SIGN</span></div>
+          <div class="field">
+            <label>SOURCE PAYLOAD FILE</label>
+            <div class="row">
+              <input id="sealInPath" placeholder="/path/to/sitrep.pdf">
+              <button class="cmd fit" onclick="openPicker('sealInPath', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>RECIPIENT PUBLIC BUNDLE (.FLCPUB)</label>
+            <div class="row">
+              <input id="sealToPub" placeholder="/path/to/bravo.flcpub">
+              <button class="cmd fit" onclick="openPicker('sealToPub', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>SENDER PRIVATE IDENTITY (.FLCID)</label>
+            <div class="row">
+              <input id="sealFromId" placeholder="/path/to/alpha.flcid">
+              <button class="cmd fit" onclick="openPicker('sealFromId', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>OUTPUT SEALED DROP (.FLCPACK)</label>
+            <input id="sealOutPath" placeholder="/tmp/falcon-test/drop.flcpack">
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="sealSanitize" checked>
+            <span>OPSEC SANITIZE (STRIP JPEG EXIF/GPS &amp; PNG METADATA + ZERO TIMESTAMP)</span>
+          </label>
+          <button class="cmd primary" onclick="sealDrop()">SEAL &amp; SIGN DROP</button>
+          <div id="sealOutBox" class="mono-pre hidden"></div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-title"><div>UNSEAL &amp; VERIFY DROP</div><span>VERIFY-BEFORE-DECRYPT</span></div>
+          <div class="field">
+            <label>SEALED DROP PACKAGE (.FLCPACK)</label>
+            <div class="row">
+              <input id="unsealPkgPath" placeholder="/tmp/falcon-test/drop.flcpack">
+              <button class="cmd fit" onclick="openPicker('unsealPkgPath', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>RECIPIENT PRIVATE IDENTITY (.FLCID)</label>
+            <div class="row">
+              <input id="unsealIdPath" placeholder="/path/to/bravo.flcid">
+              <button class="cmd fit" onclick="openPicker('unsealIdPath', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>PINNED SENDER PUBLIC BUNDLE (.FLCPUB · OPTIONAL)</label>
+            <div class="row">
+              <input id="unsealSenderPub" placeholder="Optional .flcpub to enforce sender identity">
+              <button class="cmd fit" onclick="openPicker('unsealSenderPub', 'file')" data-i18n="btn_browse">BROWSE</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>DECRYPTED OUTPUT FILE PATH</label>
+            <input id="unsealOutPath" placeholder="/tmp/falcon-test/recovered.bin">
+          </div>
+          <button class="cmd primary" onclick="unsealDrop()">VERIFY SIGNATURE &amp; UNSEAL</button>
+          <div id="unsealOutBox" class="mono-pre hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08: CRYPTO-SHRED -->
+    <section id="view-shred" class="hidden">
+      <div class="view-header">
+        <h2 style="color:var(--red-fg);" data-i18n="h_shred">08 // EMERGENCY CRYPTO-SHREDDING</h2>
+        <span class="code">NIST SP 800-88 PURGE · IRREVERSIBLE</span>
+      </div>
+
+      <div class="pane" style="border-color: var(--red-line);">
+        <div class="pane-title" style="color:var(--red-fg);"><div data-i18n="shred_title">HEADER DESTRUCTION PROTOCOL</div><span>3-PASS CSPRNG</span></div>
+        <p data-i18n="shred_desc" style="font-family:var(--mono); font-size:12px; color:var(--fg-dim); margin-bottom:14px;">
+          Overwrites Primary Header, Backup Header, and any Detached Header with 3 independent passes of OS CSPRNG bytes followed by fsync. Every wrapped copy of the 512-bit master secret is permanently destroyed.
+        </p>
+        <div class="field" style="max-width:360px;">
+          <label data-i18n="lbl_vol_path">TARGET VOLUME</label>
+          <input id="shredTarget" readonly>
+        </div>
+        <div class="field" style="max-width:360px;">
+          <label data-i18n="lbl_shred_confirm">TYPE "SHRED" TO AUTHORIZE DESTRUCTION</label>
+          <input id="shredConfirm" placeholder="SHRED">
+        </div>
+        <button class="cmd danger" onclick="shredActiveVolume()" data-i18n="btn_shred">EXECUTE CRYPTO-SHRED</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="console">
+    <div class="console-head">
+      <span data-i18n="audit_log">SESSION AUDIT LOG</span>
+      <button class="cmd xs" onclick="clearLog()" data-i18n="btn_clear">CLEAR</button>
+    </div>
+    <div id="logBody" class="console-body"></div>
+  </footer>
+</div>
+
+<div id="pickerModal" class="modal-bg hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <span id="pickerDir" class="modal-path"></span>
+      <div class="row fit">
+        <button id="pickerUseDir" class="cmd primary xs hidden" onclick="useCurrentDir()" data-i18n="btn_select_dir">SELECT DIR</button>
+        <button class="cmd xs" onclick="closePicker()">ESC</button>
+      </div>
+    </div>
+    <div id="pickerList" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- MANUAL UPDATE CHECK MODAL (NEVER AUTO PHONES HOME) -->
+<div id="updateModal" class="modal-bg hidden">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-head">
+      <span class="modal-path">FALCON // SOFTWARE UPDATE CHECK (GITHUB RELEASES)</span>
+      <button class="cmd xs" onclick="closeUpdateModal()">ESC</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <p style="font-family:var(--mono); font-size:10.5px; color:var(--fg-dim); margin-bottom:12px;">
+        Air-gap compliant: Falcon never connects to the internet automatically. Checking GitHub Releases happens strictly on manual operator request.
+      </p>
+      <div class="audit-grid" style="margin-top:0;">
+        <div class="metric"><div class="mk">INSTALLED VERSION</div><div class="mv" id="updCurrent">v0.4.0</div></div>
+        <div class="metric"><div class="mk">LATEST RELEASE</div><div class="mv" id="updLatest">CHECKING...</div></div>
+      </div>
+      <div id="updMsg" class="mono-pre" style="margin-top:6px; margin-bottom:14px;">Contacting api.github.com/repos/skotinas/falcon/releases/latest...</div>
+      <div class="row">
+        <button class="cmd primary" onclick="runUpdateCheck()">RE-CHECK RELEASES</button>
+        <a id="updLink" href="https://github.com/skotinas/falcon/releases" target="_blank" rel="noopener noreferrer" style="text-decoration:none; flex:1;">
+          <button type="button" class="cmd" style="width:100%;">OPEN GITHUB RELEASES →</button>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SANITIZED BUG REPORT MODAL -->
+<div id="bugModal" class="modal-bg hidden">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-head">
+      <span class="modal-path">FALCON // SANITIZED BUG REPORT (OPSEC SAFE)</span>
+      <button class="cmd xs" onclick="closeBugModal()">ESC</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <div class="alert show warn" style="margin-bottom:12px;">
+        OPSEC GUARANTEE: Zero keys, passphrases, volume UUIDs, or local file paths are included in the diagnostic payload below.
+      </div>
+      <div class="field">
+        <label>SHORT ISSUE SUMMARY (OPTIONAL)</label>
+        <input id="bugTitle" placeholder="e.g. Issue with detached header unlock on macOS">
+      </div>
+      <div class="field">
+        <label>SANITIZED ENVIRONMENT DIAGNOSTICS (AUTO-GENERATED)</label>
+        <textarea id="bugDiagBox" readonly style="min-height:115px;"></textarea>
+      </div>
+      <div class="row">
+        <button class="cmd primary" onclick="submitGithubBug()">OPEN GITHUB ISSUE →</button>
+        <button class="cmd" onclick="copyBugReport()">COPY DIAGNOSTICS</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TOKEN = "__FALCON_SESSION_TOKEN__";
+
+  const I18N = {
+    en: {
+      brand_sub: "CRYPTOGRAPHIC VOLUME CONTROLLER // v0.4.0",
+      theme_day: "DAY", theme_night: "NIGHT",
+      locked: "LOCKED", active_slot: "ACTIVE · SLOT", lock_zeroize: "LOCK / ZEROIZE",
+      modules: "MODULES", nav_access: "VOLUME ACCESS", nav_files: "VAULT STORAGE",
+      nav_audit: "INTEGRITY AUDIT", nav_keys: "KEY SLOTS & DURESS",
+      nav_shamir: "SHAMIR M-OF-N", nav_diag: "DIAGNOSTICS", nav_drops: "SEALED DROPS", nav_shred: "CRYPTO-SHRED",
+      active_target: "ACTIVE TARGET", rt_status: "STATUS", rt_cipher: "CIPHER",
+      rt_slot: "SLOT", rt_sectors: "SECTORS", rt_alloc: "ALLOC",
+      mounted: "MOUNTED", disconnected: "DISCONNECTED",
+      h_access: "01 // VOLUME ACCESS & PROVISIONING",
+      h_access_sub: "AES-XTS · CASCADE SERPENT · ML-KEM-1024 · STEALTH DETACHED",
+      unlock_title: "MOUNT / UNLOCK EXISTING VOLUME", auth_req: "AUTH REQUIRED",
+      create_title: "INITIALIZE NEW ENCRYPTED VOLUME",
+      lbl_vol_path: "TARGET VOLUME PATH", lbl_dest_path: "DESTINATION PATH",
+      lbl_pass: "PASSPHRASE", lbl_confirm_pass: "CONFIRM PASSPHRASE",
+      lbl_new_pass: "NEW PASSPHRASE", lbl_kf_opt: "2FA KEYFILE PATH (OPTIONAL)",
+      lbl_pq_opt: "ML-KEM-1024 PQ KEYPAIR (OPTIONAL)", lbl_detached_opt: "DETACHED STEALTH HEADER (OPTIONAL)",
+      lbl_new_kf: "NEW KEYFILE (EMPTY = NONE)", lbl_cap: "DATA CAPACITY",
+      lbl_cipher_mode: "CIPHER MODE", lbl_kdf: "ARGON2ID KDF PROFILE", lbl_slot_label: "PRIMARY SLOT LABEL",
+      ph_pass: "Enter slot passphrase", ph_kf: "Optional .key file",
+      btn_browse: "BROWSE", btn_dir: "DIR", btn_unlock: "UNLOCK INTO RAM",
+      btn_deriving: "DERIVING KEK...", btn_inspect: "INSPECT HEADER",
+      btn_keygen: "KEYGEN 64B", btn_pq_keygen: "PQ-KEYGEN", btn_create: "FORMAT & MOUNT", btn_init: "INITIALIZING SECTORS...",
+      h_files: "02 // ENCRYPTED VAULT STORAGE", lbl_prefix: "TARGET SUBDIRECTORY PREFIX (OPTIONAL)",
+      btn_refresh: "REFRESH", ingest_head: "INGEST FILES",
+      ingest_sub: "Drop payload here or click to select files for sector encryption",
+      th_path: "VAULT PATH", th_size: "SIZE", th_sha: "SHA-256 DIGEST", th_ops: "OPERATIONS",
+      no_files: "NO OBJECTS STORED IN VOLUME", btn_extract: "EXTRACT", btn_wipe: "WIPE",
+      h_audit: "03 // CRYPTOGRAPHIC INTEGRITY AUDIT", audit_ctrl: "VERIFICATION CONTROLS",
+      full_scan: "FULL SURFACE SCAN", btn_audit: "EXECUTE FULL AUDIT",
+      btn_scanning: "SCANNING SECTORS...", btn_repair: "REPAIR / SYNC HEADERS", btn_export: "EXPORT REPORT (.JSON)",
+      m_prim: "PRIMARY HEADER MAC", m_back: "BACKUP HEADER MAC",
+      m_sync: "HEADER SYNC", m_sec: "VERIFIED SECTORS",
+      sector_map_lbl: "SECTOR INTEGRITY MATRIX (GREEN: AUTH OK · RED: TAMPER)",
+      pass: "PASS", fail: "FAIL", synced: "SYNCED", diverged: "DIVERGED", detached: "DETACHED",
+      h_keys: "04 // KEY SLOTS & DURESS PROTOCOL", slots_title: "CONFIGURED KEY SLOTS",
+      th_slot: "SLOT", th_state: "STATE", th_label: "LABEL", th_kdf: "KDF PARAMETERS",
+      th_factors: "FACTORS", th_action: "ACTION",
+      slot_empty: "EMPTY", slot_in_use: "IN USE", slot_active: "ACTIVE", btn_revoke: "REVOKE",
+      add_slot_title: "PROVISION SECONDARY / PQ RECOVERY SLOT", btn_add_slot: "PROVISION KEY SLOT",
+      duress_title: "PROVISION SILENT DURESS / PANIC SLOT",
+      duress_desc: "Indistinguishable from a normal active slot on disk. Entering this passphrase at unlock silently executes 3-pass CSPRNG crypto-shredding of all headers and returns a normal auth error.",
+      lbl_decoy_label: "DECOY LABEL", lbl_duress_pass: "DURESS / PANIC PASSPHRASE", btn_add_duress: "ARM DURESS SLOT",
+      rot_title: "ROTATE ACTIVE SLOT CREDENTIALS", btn_rot: "ROTATE CREDENTIALS",
+      h_shamir: "05 // SHAMIR SECRET SHARING (M-OF-N)",
+      shamir_split_title: "SPLIT RECOVERY KEY INTO SHARES", shamir_comb_title: "RECONSTRUCT KEYFILE FROM M SHARES",
+      lbl_threshold: "THRESHOLD (M REQUIRED)", lbl_total_shares: "TOTAL SHARES (N)",
+      lbl_sh_in: "EXISTING KEYFILE TO SPLIT (EMPTY = FRESH 32B KEY)", lbl_sh_save: "SAVE GENERATED KEYFILE (OPTIONAL)",
+      btn_sh_split: "GENERATE M-OF-N SHARES", lbl_sh_paste: "PASTE M CHECKSUMMED SHARES (ONE PER LINE)",
+      lbl_sh_out: "OUTPUT RECONSTRUCTED KEYFILE PATH", btn_sh_comb: "RECONSTRUCT KEYFILE",
+      h_diag: "06 // CRYPTO DIAGNOSTICS & ENTROPY TELEMETRY",
+      bench_title: "HARDWARE CIPHER BENCHMARK", lbl_bench_sec: "SAMPLE SECTORS", btn_bench: "RUN BENCHMARK",
+      ent_title: "SHANNON ENTROPY & STEALTH ANALYZER", btn_ent: "ANALYZE ENTROPY",
+      h_drops: "07 // TACTICAL SEALED DROPS (.FLCPACK)",
+      h_shred: "08 // EMERGENCY CRYPTO-SHREDDING", shred_title: "HEADER DESTRUCTION PROTOCOL",
+      shred_desc: "Overwrites Primary Header, Backup Header, and any Detached Header with 3 independent passes of OS CSPRNG bytes followed by fsync. Every wrapped copy of the 512-bit master secret is permanently destroyed.",
+      lbl_shred_confirm: "TYPE \"SHRED\" TO AUTHORIZE DESTRUCTION", btn_shred: "EXECUTE CRYPTO-SHRED",
+      audit_log: "SESSION AUDIT LOG", btn_clear: "CLEAR", btn_select_dir: "SELECT DIR",
+      parent: "PARENT", dir: "DIR",
+      log_ready: "Falcon v0.4 COMSEC controller ready (loopback 127.0.0.1, POST PASS, per-session token active).",
+      err_path_pass: "Volume path and passphrase required.",
+      err_dest: "Destination path required.", err_empty_pass: "Passphrase cannot be empty.",
+      err_mismatch: "Passphrases do not match.", err_shred_auth: "Authorization string must be 'SHRED'.",
+      ok_locked: "Session locked. Master keys zeroized from RAM.",
+      ok_repaired: "Headers re-signed and synchronized.",
+      warn_backup: "PRIMARY HEADER DAMAGED — MOUNTED VIA BACKUP HEADER. RUN HEADER REPAIR.",
+      confirm_wipe: "Confirm permanent deletion & sector overwrite for",
+      confirm_revoke: "Revoke key slot",
+      entry_loopback: "LOOPBACK 127.0.0.1 · SESSION TOKEN AUTHENTICATED",
+      entry_t_post: "SELF-TEST STATUS", entry_t_mem: "MEMORY PROTECTION",
+      entry_t_usb: "USB KILL-SWITCH", entry_t_net: "NETWORK EXPOSURE",
+      ec1_title: "UNLOCK EXISTING VOLUME",
+      ec1_desc: "Mount standard, detached stealth (.fhdr), or plausible-deniability hidden volumes directly into locked RAM.",
+      ec2_title: "CREATE ENCRYPTED VOLUME",
+      ec2_desc: "Format a fresh sector-authenticated container with Serpent cascade, Mission TTL, Dead-Man's Switch, and Ed25519 custody.",
+      ec3_title: "TACTICAL SEALED DROPS (.FLCPACK)",
+      ec3_desc: "Encrypt & sign files directly to another operator's public bundle without a shared passphrase. Includes OPSEC EXIF stripping.",
+      ec4_title: "SHAMIR M-OF-N & DIAGNOSTICS",
+      ec4_desc: "Split recovery keys into GF(256) threshold shares with printable air-gapped QR keycards, or inspect entropy & cipher throughput.",
+      entry_btn_enter: "ENTER WORKSTATION CONSOLE →",
+      entry_btn_diag: "DIAGNOSTICS & POST",
+      entry_hint: "KEYS [1-4] LAUNCH · [ENTER] CONSOLE",
+      entry_skip: "SKIP ENTRY GATE",
+      btn_update: "GET UPDATE", btn_bug: "REPORT BUG"
+    },
+    el: {
+      brand_sub: "ΕΛΕΓΚΤΗΣ ΚΡΥΠΤΟΓΡΑΦΗΜΕΝΩΝ ΤΟΜΩΝ // v0.4.0",
+      theme_day: "ΗΜΕΡΑ", theme_night: "ΝΥΧΤΑ",
+      locked: "ΚΛΕΙΔΩΜΕΝΟ", active_slot: "ΕΝΕΡΓΟ · ΘΥΡΙΔΑ", lock_zeroize: "ΚΛΕΙΔΩΜΑ / ΜΗΔΕΝΙΣΜΟΣ",
+      modules: "ΥΠΟΣΥΣΤΗΜΑΤΑ", nav_access: "ΠΡΟΣΒΑΣΗ ΤΟΜΟΥ", nav_files: "ΑΠΟΘΗΚΕΥΣΗ VAULT",
+      nav_audit: "ΕΛΕΓΧΟΣ ΑΚΕΡΑΙΟΤΗΤΑΣ", nav_keys: "ΚΛΕΙΔΙΑ & DURESS",
+      nav_shamir: "SHAMIR M-OF-N", nav_diag: "ΔΙΑΓΝΩΣΤΙΚΑ", nav_drops: "SEALED DROPS", nav_shred: "ΚΑΤΑΣΤΡΟΦΗ (SHRED)",
+      active_target: "ΕΝΕΡΓΟΣ ΣΤΟΧΟΣ", rt_status: "ΚΑΤΑΣΤΑΣΗ", rt_cipher: "ΑΛΓΟΡΙΘΜΟΣ",
+      rt_slot: "ΘΥΡΙΔΑ", rt_sectors: "SECTORS", rt_alloc: "ΧΡΗΣΗ",
+      mounted: "ΠΡΟΣΑΡΤΗΜΕΝΟ", disconnected: "ΑΠΟΣΥΝΔΕΔΕΜΕΝΟ",
+      h_access: "01 // ΠΡΟΣΒΑΣΗ & ΠΡΟΕΤΟΙΜΑΣΙΑ ΤΟΜΟΥ",
+      h_access_sub: "AES-XTS · CASCADE SERPENT · ML-KEM-1024 · STEALTH DETACHED",
+      unlock_title: "ΞΕΚΛΕΙΔΩΜΑ ΥΠΑΡΧΟΝΤΟΣ ΤΟΜΟΥ", auth_req: "ΑΠΑΙΤΕΙΤΑΙ ΠΙΣΤΟΠΟΙΗΣΗ",
+      create_title: "ΔΗΜΙΟΥΡΓΙΑ ΝΕΟΥ ΚΡΥΠΤΟΓΡΑΦΗΜΕΝΟΥ ΤΟΜΟΥ",
+      lbl_vol_path: "ΔΙΑΔΡΟΜΗ ΤΟΜΟΥ", lbl_dest_path: "ΔΙΑΔΡΟΜΗ ΠΡΟΟΡΙΣΜΟΥ",
+      lbl_pass: "ΚΩΔΙΚΟΣ ΠΡΟΣΒΑΣΗΣ", lbl_confirm_pass: "ΕΠΙΒΕΒΑΙΩΣΗ ΚΩΔΙΚΟΥ",
+      lbl_new_pass: "ΝΕΟΣ ΚΩΔΙΚΟΣ", lbl_kf_opt: "ΑΡΧΕΙΟ-ΚΛΕΙΔΙ 2FA (ΠΡΟΑΙΡΕΤΙΚΟ)",
+      lbl_pq_opt: "ΚΛΕΙΔΙ ML-KEM-1024 PQ (ΠΡΟΑΙΡΕΤΙΚΟ)", lbl_detached_opt: "ΞΕΧΩΡΙΣΤΟ STEALTH HEADER (ΠΡΟΑΙΡΕΤΙΚΟ)",
+      lbl_new_kf: "ΝΕΟ ΑΡΧΕΙΟ-ΚΛΕΙΔΙ (ΚΕΝΟ = ΚΑΝΕΝΑ)", lbl_cap: "ΧΩΡΗΤΙΚΟΤΗΤΑ ΔΕΔΟΜΕΝΩΝ",
+      lbl_cipher_mode: "ΤΡΟΠΟΣ ΚΡΥΠΤΟΓΡΑΦΗΣΗΣ", lbl_kdf: "ΠΡΟΦΙΛ ARGON2ID KDF", lbl_slot_label: "ΕΤΙΚΕΤΑ ΚΥΡΙΑΣ ΘΥΡΙΔΑΣ",
+      ph_pass: "Εισάγετε κωδικό θυρίδας", ph_kf: "Προαιρετικό αρχείο .key",
+      btn_browse: "ΕΠΙΛΟΓΗ", btn_dir: "ΦΑΚΕΛΟΣ", btn_unlock: "ΞΕΚΛΕΙΔΩΜΑ ΣΤΗ RAM",
+      btn_deriving: "ΠΑΡΑΓΩΓΗ KEK...", btn_inspect: "ΕΠΙΘΕΩΡΗΣΗ HEADER",
+      btn_keygen: "KEYGEN 64B", btn_pq_keygen: "PQ-KEYGEN", btn_create: "ΜΟΡΦΟΠΟΙΗΣΗ & ΑΝΟΙΓΜΑ", btn_init: "ΚΡΥΠΤΟΓΡΑΦΗΣΗ SECTORS...",
+      h_files: "02 // ΚΡΥΠΤΟΓΡΑΦΗΜΕΝΗ ΑΠΟΘΗΚΕΥΣΗ", lbl_prefix: "ΥΠΟΦΑΚΕΛΟΣ ΠΡΟΟΡΙΣΜΟΥ (ΠΡΟΑΙΡΕΤΙΚΟ)",
+      btn_refresh: "ΑΝΑΝΕΩΣΗ", ingest_head: "ΕΙΣΑΓΩΓΗ ΑΡΧΕΙΩΝ",
+      ingest_sub: "Σύρετε αρχεία εδώ ή κάντε κλικ για κρυπτογράφηση ανά sector",
+      th_path: "ΔΙΑΔΡΟΜΗ ΣΤΟ VAULT", th_size: "ΜΕΓΕΘΟΣ", th_sha: "ΣΥΝΟΨΗ SHA-256", th_ops: "ΕΝΕΡΓΕΙΕΣ",
+      no_files: "ΔΕΝ ΥΠΑΡΧΟΥΝ ΑΡΧΕΙΑ ΣΤΟΝ ΤΟΜΟ", btn_extract: "ΕΞΑΓΩΓΗ", btn_wipe: "ΕΞΑΛΕΙΨΗ",
+      h_audit: "03 // ΚΡΥΠΤΟΓΡΑΦΙΚΟΣ ΕΛΕΓΧΟΣ ΑΚΕΡΑΙΟΤΗΤΑΣ", audit_ctrl: "ΧΕΙΡΙΣΤΗΡΙΑ ΕΛΕΓΧΟΥ",
+      full_scan: "ΠΛΗΡΗΣ ΣΑΡΩΣΗ ΕΠΙΦΑΝΕΙΑΣ", btn_audit: "ΕΚΤΕΛΕΣΗ ΠΛΗΡΟΥΣ ΕΛΕΓΧΟΥ",
+      btn_scanning: "ΣΑΡΩΣΗ SECTORS...", btn_repair: "ΕΠΙΔΙΟΡΘΩΣΗ / ΣΥΓΧΡΟΝΙΣΜΟΣ", btn_export: "ΕΞΑΓΩΓΗ ΑΝΑΦΟΡΑΣ (.JSON)",
+      m_prim: "MAC ΚΥΡΙΟΥ HEADER", m_back: "MAC ΕΦΕΔΡΙΚΟΥ HEADER",
+      m_sync: "ΣΥΓΧΡΟΝΙΣΜΟΣ HEADER", m_sec: "ΕΠΑΛΗΘΕΥΜΕΝΑ SECTORS",
+      sector_map_lbl: "ΜΗΤΡΑ ΑΚΕΡΑΙΟΤΗΤΑΣ SECTORS (ΠΡΑΣΙΝΟ: ΕΓΚΥΡΟ · ΚΟΚΚΙΝΟ: ΠΑΡΑΒΙΑΣΗ)",
+      pass: "ΕΓΚΥΡΟ", fail: "ΑΠΟΤΥΧΙΑ", synced: "ΣΥΓΧΡΟΝΙΣΜΕΝΟ", diverged: "ΑΠΟΚΛΙΣΗ", detached: "DETACHED",
+      h_keys: "04 // ΘΥΡΙΔΕΣ ΚΛΕΙΔΙΩΝ & ΠΡΩΤΟΚΟΛΛΟ DURESS", slots_title: "ΡΥΘΜΙΣΜΕΝΕΣ ΘΥΡΙΔΕΣ",
+      th_slot: "ΘΥΡΙΔΑ", th_state: "ΚΑΤΑΣΤΑΣΗ", th_label: "ΕΤΙΚΕΤΑ", th_kdf: "ΠΑΡΑΜΕΤΡΟΙ KDF",
+      th_factors: "ΠΑΡΑΓΟΝΤΕΣ", th_action: "ΕΝΕΡΓΕΙΑ",
+      slot_empty: "ΚΕΝΗ", slot_in_use: "ΣΕ ΧΡΗΣΗ", slot_active: "ΕΝΕΡΓΗ", btn_revoke: "ΑΝΑΚΛΗΣΗ",
+      add_slot_title: "ΠΡΟΣΘΗΚΗ ΕΦΕΔΡΙΚΗΣ / PQ ΘΥΡΙΔΑΣ", btn_add_slot: "ΔΗΜΙΟΥΡΓΙΑ ΘΥΡΙΔΑΣ",
+      duress_title: "ΡΥΘΜΙΣΗ ΑΘΟΡΥΒΟΥ ΚΩΔΙΚΟΥ DURESS / ΠΑΝΙΚΟΥ",
+      duress_desc: "Αδιάκριτο από μια κανονική θυρίδα στον δίσκο. Η εισαγωγή αυτού του κωδικού στο ξεκλείδωμα εκτελεί αθόρυβα 3-pass CSPRNG crypto-shredding και επιστρέφει απλό σφάλμα κωδικού.",
+      lbl_decoy_label: "ΕΤΙΚΕΤΑ ΚΑΛΥΨΗΣ (DECOY)", lbl_duress_pass: "ΚΩΔΙΚΟΣ ΠΑΝΙΚΟΥ (DURESS)", btn_add_duress: "ΟΠΛΙΣΗ ΘΥΡΙΔΑΣ DURESS",
+      rot_title: "ΑΛΛΑΓΗ ΔΙΑΠΙΣΤΕΥΤΗΡΙΩΝ ΕΝΕΡΓΗΣ ΘΥΡΙΔΑΣ", btn_rot: "ΕΝΑΛΛΑΓΗ ΚΩΔΙΚΟΥ",
+      h_shamir: "05 // ΔΙΑΜΟΙΡΑΣΜΟΣ ΚΛΕΙΔΙΟΥ SHAMIR (M-OF-N)",
+      shamir_split_title: "ΔΙΑΣΠΑΣΗ ΚΛΕΙΔΙΟΥ ΣΕ ΜΕΡΙΔΙΑ", shamir_comb_title: "ΑΝΑΚΑΤΑΣΚΕΥΗ ΚΛΕΙΔΙΟΥ ΑΠΟ M ΜΕΡΙΔΙΑ",
+      lbl_threshold: "ΚΑΤΩΦΛΙ (M ΑΠΑΙΤΟΥΜΕΝΑ)", lbl_total_shares: "ΣΥΝΟΛΙΚΑ ΜΕΡΙΔΙΑ (N)",
+      lbl_sh_in: "ΥΠΑΡΧΟΝ KEYFILE ΓΙΑ ΔΙΑΣΠΑΣΗ (ΚΕΝΟ = ΝΕΟ ΚΛΕΙΔΙ 32B)", lbl_sh_save: "ΑΠΟΘΗΚΕΥΣΗ KEYFILE (ΠΡΟΑΙΡΕΤΙΚΟ)",
+      btn_sh_split: "ΠΑΡΑΓΩΓΗ ΜΕΡΙΔΙΩΝ M-OF-N", lbl_sh_paste: "ΕΠΙΚΟΛΛΗΣΗ M ΜΕΡΙΔΙΩΝ (ΕΝΑ ΑΝΑ ΓΡΑΜΜΗ)",
+      lbl_sh_out: "ΔΙΑΔΡΟΜΗ ΑΝΑΚΑΤΑΣΚΕΥΑΣΜΕΝΟΥ KEYFILE", btn_sh_comb: "ΑΝΑΚΑΤΑΣΚΕΥΗ KEYFILE",
+      h_diag: "06 // ΔΙΑΓΝΩΣΤΙΚΑ ΚΡΥΠΤΟΓΡΑΦΙΑΣ & ΕΝΤΡΟΠΙΑΣ",
+      bench_title: "BENCHMARK ΤΑΧΥΤΗΤΑΣ HARDWARE", lbl_bench_sec: "ΔΕΙΓΜΑ SECTORS", btn_bench: "ΕΚΤΕΛΕΣΗ BENCHMARK",
+      ent_title: "ΑΝΑΛΥΤΗΣ ΕΝΤΡΟΠΙΑΣ SHANNON & STEALTH", btn_ent: "ΑΝΑΛΥΣΗ ΕΝΤΡΟΠΙΑΣ",
+      h_drops: "07 // ΣΦΡΑΓΙΣΜΕΝΑ ΠΑΚΕΤΑ (.FLCPACK)",
+      h_shred: "08 // ΕΚΤΑΚΤΗ ΚΡΥΠΤΟ-ΚΑΤΑΣΤΡΟΦΗ (SHRED)", shred_title: "ΠΡΩΤΟΚΟΛΛΟ ΚΑΤΑΣΤΡΟΦΗΣ HEADERS",
+      shred_desc: "Επανεγγράφει το Κύριο, το Εφεδρικό και τυχόν Detached Header με 3 περάσματα CSPRNG + fsync. Κάθε αντίγραφο του 512-bit master secret καταστρέφεται οριστικά.",
+      lbl_shred_confirm: "ΠΛΗΚΤΡΟΛΟΓΗΣΤΕ \"SHRED\" ΓΙΑ ΕΠΙΒΕΒΑΙΩΣΗ", btn_shred: "ΕΚΤΕΛΕΣΗ ΚΡΥΠΤΟ-ΚΑΤΑΣΤΡΟΦΗΣ",
+      audit_log: "ΑΡΧΕΙΟ ΚΑΤΑΓΡΑΦΗΣ ΣΥΝΕΔΡΙΑΣ", btn_clear: "ΚΑΘΑΡΙΣΜΟΣ", btn_select_dir: "ΕΠΙΛΟΓΗ ΦΑΚΕΛΟΥ",
+      parent: "ΓΟΝΙΚΟΣ", dir: "ΦΑΚΕΛΟΣ",
+      log_ready: "Ο ελεγκτής Falcon v0.4 COMSEC είναι έτοιμος (loopback 127.0.0.1, POST PASS).",
+      err_path_pass: "Απαιτείται διαδρομή τόμου και κωδικός.",
+      err_dest: "Απαιτείται διαδρομή προορισμού.", err_empty_pass: "Ο κωδικός δεν μπορεί να είναι κενός.",
+      err_mismatch: "Οι κωδικοί δεν ταιριάζουν.", err_shred_auth: "Πληκτρολογήστε ακριβώς 'SHRED'.",
+      ok_locked: "Κλειδώθηκε. Τα κλειδιά μηδενίστηκαν από τη RAM.",
+      ok_repaired: "Τα headers επαναϋπογράφηκαν και συγχρονίστηκαν.",
+      warn_backup: "ΚΑΤΕΣΤΡΑΜΜΕΝΟ ΚΥΡΙΟ HEADER — ΑΝΟΙΧΤΗΚΕ ΑΠΟ BACKUP.",
+      confirm_wipe: "Επιβεβαίωση οριστικής εξάλειψης sectors για",
+      confirm_revoke: "Ανάκληση θυρίδας",
+      entry_loopback: "LOOPBACK 127.0.0.1 · ΕΝΕΡΓΟ TOKEN ΣΥΝΕΔΡΙΑΣ",
+      entry_t_post: "ΑΥΤΟΔΙΑΓΝΩΣΗ POST", entry_t_mem: "ΠΡΟΣΤΑΣΙΑ ΜΝΗΜΗΣ",
+      entry_t_usb: "USB KILL-SWITCH", entry_t_net: "ΔΙΚΤΥΑΚΗ ΕΚΘΕΣΗ",
+      ec1_title: "ΞΕΚΛΕΙΔΩΜΑ ΥΠΑΡΧΟΝΤΟΣ ΤΟΜΟΥ",
+      ec1_desc: "Προσάρτηση κανονικών, detached stealth (.fhdr) ή κρυφών τόμων (Plausible Deniability) απευθείας σε κλειδωμένη RAM.",
+      ec2_title: "ΔΗΜΙΟΥΡΓΙΑ ΚΡΥΠΤΟΓΡΑΦΗΜΕΝΟΥ ΤΟΜΟΥ",
+      ec2_desc: "Μορφοποίηση νέου τόμου με Serpent cascade, Mission TTL, Dead-Man's Switch και Ed25519 Chain-of-Custody.",
+      ec3_title: "ΣΦΡΑΓΙΣΜΕΝΑ ΠΑΚΕΤΑ (.FLCPACK)",
+      ec3_desc: "Ασύμμετρη post-quantum κρυπτογράφηση & υπογραφή αρχείων προς το δημόσιο κλειδί άλλου operator χωρίς κοινό κωδικό.",
+      ec4_title: "SHAMIR M-OF-N & ΔΙΑΓΝΩΣΤΙΚΑ",
+      ec4_desc: "Διάσπαση κλειδιών σε μερίδια GF(256) με εκτυπώσιμες QR κάρτες, έλεγχος εντροπίας Shannon και benchmark.",
+      entry_btn_enter: "ΕΙΣΟΔΟΣ ΣΤΗΝ ΚΟΝΣΟΛΑ →",
+      entry_btn_diag: "ΔΙΑΓΝΩΣΤΙΚΑ & POST",
+      entry_hint: "ΠΛΗΚΤΡΑ [1-4] ΕΚΚΙΝΗΣΗ · [ENTER] ΚΟΝΣΟΛΑ",
+      entry_skip: "ΠΑΡΑΛΕΙΨΗ ΟΘΟΝΗΣ ΕΙΣΟΔΟΥ",
+      btn_update: "ΕΝΗΜΕΡΩΣΗ", btn_bug: "ΑΝΑΦΟΡΑ BUG"
+    },
+    de: {
+      brand_sub: "KRYPTOGRAFISCHER LAUFWERKS-CONTROLLER // v0.4.0",
+      theme_day: "TAG", theme_night: "NACHT",
+      locked: "GESPERRT", active_slot: "AKTIV · SLOT", lock_zeroize: "SPERREN / LÖSCHEN",
+      modules: "MODULE", nav_access: "LAUFWERKSZUGRIFF", nav_files: "TRESORSPEICHER",
+      nav_audit: "INTEGRITÄTSPRÜFUNG", nav_keys: "SLOTS & DURESS",
+      nav_shamir: "SHAMIR M-VON-N", nav_diag: "DIAGNOSE", nav_drops: "SEALED DROPS", nav_shred: "KRYPTO-SHRED",
+      active_target: "AKTIVES ZIEL", rt_status: "STATUS", rt_cipher: "CHIFFRE",
+      rt_slot: "SLOT", rt_sectors: "SEKTOREN", rt_alloc: "BELEGT",
+      mounted: "EINGEHÄNGT", disconnected: "GETRENNT",
+      h_access: "01 // VOLUME-ZUGRIFF & INITIALISIERUNG",
+      h_access_sub: "AES-XTS · SERPENT-KASKADE · ML-KEM-1024 · STEALTH",
+      unlock_title: "VOLUME ENTSPERREN", auth_req: "AUTH ERFORDERLICH",
+      create_title: "NEUES VERSCHLÜSSELTES VOLUME ERSTELLEN",
+      lbl_vol_path: "VOLUME-PFAD", lbl_dest_path: "ZIELPFAD",
+      lbl_pass: "PASSWORT", lbl_confirm_pass: "PASSWORT BESTÄTIGEN",
+      lbl_new_pass: "NEUES PASSWORT", lbl_kf_opt: "2FA-SCHLÜSSELDATEI (OPTIONAL)",
+      lbl_pq_opt: "ML-KEM-1024 PQ-SCHLÜSSEL (OPTIONAL)", lbl_detached_opt: "EXTERNER STEALTH-HEADER (OPTIONAL)",
+      lbl_new_kf: "NEUE SCHLÜSSELDATEI", lbl_cap: "KAPAZITÄT",
+      lbl_cipher_mode: "CHIFFRE-MODUS", lbl_kdf: "ARGON2ID-PROFIL", lbl_slot_label: "SLOT-LABEL",
+      ph_pass: "Passwort eingeben", ph_kf: "Optionale .key-Datei",
+      btn_browse: "WÄHLEN", btn_dir: "ORDNER", btn_unlock: "ENTSPERREN",
+      btn_deriving: "LEITE KEK AB...", btn_inspect: "HEADER PRÜFEN",
+      btn_keygen: "KEYGEN 64B", btn_pq_keygen: "PQ-KEYGEN", btn_create: "FORMATIEREN & ÖFFNEN", btn_init: "INITIALISIERE...",
+      h_files: "02 // VERSCHLÜSSELTER TRESORSPEICHER", lbl_prefix: "UNTERORDNER-PRÄFIX (OPTIONAL)",
+      btn_refresh: "AKTUALISIEREN", ingest_head: "DATEIEN IMPORTIEREN",
+      ingest_sub: "Dateien hier ablegen oder klicken", th_path: "PFAD", th_size: "GRÖSSE",
+      th_sha: "SHA-256", th_ops: "AKTIONEN", no_files: "KEINE DATEIEN", btn_extract: "EXTRAHIEREN", btn_wipe: "LÖSCHEN",
+      h_audit: "03 // INTEGRITÄTSPRÜFUNG", audit_ctrl: "PRÜFSTEUERUNG", full_scan: "VOLLSCAN",
+      btn_audit: "VOLLPRÜFUNG", btn_scanning: "PRÜFE...", btn_repair: "HEADER REPARIEREN", btn_export: "BERICHT (.JSON)",
+      m_prim: "PRIMÄR-MAC", m_back: "BACKUP-MAC", m_sync: "SYNC", m_sec: "SEKTOREN",
+      sector_map_lbl: "SEKTOR-MATRIX (GRÜN: OK · ROT: MANIPULATION)",
+      pass: "OK", fail: "FEHLER", synced: "SYNCHRON", diverged: "ABWEICHUNG", detached: "EXTERN",
+      h_keys: "04 // SCHLÜSSEL-SLOTS & DURESS", slots_title: "KONFIGURIERTE SLOTS",
+      th_slot: "SLOT", th_state: "STATUS", th_label: "LABEL", th_kdf: "KDF", th_factors: "FAKTOREN", th_action: "AKTION",
+      slot_empty: "LEER", slot_in_use: "AKTIV", slot_active: "BEREIT", btn_revoke: "WIDERRUFEN",
+      add_slot_title: "SEKUNDÄR- / PQ-SLOT HINZUFÜGEN", btn_add_slot: "SLOT ANLEGEN",
+      duress_title: "STILLEN DURESS- / PANIK-SLOT EINRICHTEN",
+      duress_desc: "Nicht von einem normalen Slot unterscheidbar. Bei Eingabe werden alle Header lautlos mit 3x CSPRNG vernichtet.",
+      lbl_decoy_label: "TARN-LABEL", lbl_duress_pass: "DURESS-PASSWORT", btn_add_duress: "DURESS-SLOT AKTIVIEREN",
+      rot_title: "AKTIVEN SLOT ROTIEREN", btn_rot: "ROTIEREN",
+      h_shamir: "05 // SHAMIR SECRET SHARING (M-VON-N)",
+      shamir_split_title: "SCHLÜSSEL IN TEILE AUFSPALTEN", shamir_comb_title: "SCHLÜSSEL AUS M TEILEN REKONSTRUIEREN",
+      lbl_threshold: "SCHWELLE (M)", lbl_total_shares: "GESAMTTEILE (N)",
+      lbl_sh_in: "BESTEHENDE KEYDATEI (LEER = NEU 32B)", lbl_sh_save: "KEYDATEI SPEICHERN (OPTIONAL)",
+      btn_sh_split: "TEILE ERZEUGEN", lbl_sh_paste: "M TEILE EINFÜGEN (EINER PRO ZEILE)",
+      lbl_sh_out: "AUSGABE-KEYDATEI", btn_sh_comb: "REKONSTRUIEREN",
+      h_diag: "06 // KRYPTO-DIAGNOSE & ENTROPIE",
+      bench_title: "HARDWARE-BENCHMARK", lbl_bench_sec: "TEST-SEKTOREN", btn_bench: "BENCHMARK STARTEN",
+      ent_title: "SHANNON-ENTROPIE & STEALTH-CHECK", btn_ent: "ENTROPIE PRÜFEN",
+      h_drops: "07 // TAKTISCHE SEALED DROPS (.FLCPACK)",
+      h_shred: "08 // NOTFALL-KRYPTO-SHREDDING", shred_title: "HEADER-ZERSTÖRUNG",
+      shred_desc: "Überschreibt alle Header 3x mit CSPRNG + fsync. Unwiderruflich.",
+      lbl_shred_confirm: "\"SHRED\" EINGEBEN", btn_shred: "KRYPTO-SHRED AUSFÜHREN",
+      audit_log: "SITZUNGS-PROTOKOLL", btn_clear: "LEEREN", btn_select_dir: "ORDNER WÄHLEN",
+      parent: "ÜBERGEORDNET", dir: "ORDNER",
+      log_ready: "Falcon v0.4 COMSEC bereit (127.0.0.1, POST PASS).",
+      err_path_pass: "Pfad und Passwort erforderlich.", err_dest: "Zielpfad erforderlich.",
+      err_empty_pass: "Passwort darf nicht leer sein.", err_mismatch: "Passwörter ungleich.",
+      err_shred_auth: "Exakt 'SHRED' eingeben.", ok_locked: "Gesperrt. RAM genullt.",
+      ok_repaired: "Header repariert.", warn_backup: "ÜBER BACKUP-HEADER GEÖFFNET.",
+      confirm_wipe: "Endgültig löschen:", confirm_revoke: "Slot widerrufen",
+      entry_loopback: "LOOPBACK 127.0.0.1 · SITZUNGS-TOKEN AKTIV",
+      entry_t_post: "SELBSTTEST-STATUS", entry_t_mem: "SPEICHERSCHUTZ",
+      entry_t_usb: "USB KILL-SWITCH", entry_t_net: "NETZWERK",
+      ec1_title: "BESTEHENDES VOLUME ENTSPERREN",
+      ec1_desc: "Standard-, Stealth- (.fhdr) oder versteckte Volumes direkt in geschützten RAM einhängen.",
+      ec2_title: "NEUES VOLUME ERSTELLEN",
+      ec2_desc: "Neuen Container mit Serpent-Kaskade, Mission-TTL, Dead-Man's-Switch und Ed25519-Protokoll anlegen.",
+      ec3_title: "TAKTISCHE SEALED DROPS (.FLCPACK)",
+      ec3_desc: "Dateien post-quantenverschlüsselt & signiert ohne gemeinsames Passwort an Empfänger senden.",
+      ec4_title: "SHAMIR M-VON-N & DIAGNOSE",
+      ec4_desc: "Schlüssel in GF(256)-Anteile mit druckbaren QR-Karten teilen oder Entropie & Benchmark prüfen.",
+      entry_btn_enter: "KONSOLE ÖFFNEN →",
+      entry_btn_diag: "DIAGNOSE & POST",
+      entry_hint: "TASTEN [1-4] DIREKTSTART · [ENTER] KONSOLE",
+      entry_skip: "STARTSEITE ÜBERSPRINGEN",
+      btn_update: "UPDATE PRÜFEN", btn_bug: "BUG MELDEN"
+    },
+    fr: {
+      brand_sub: "CONTRÔLEUR CRYPTOGRAPHIQUE // v0.4.0",
+      theme_day: "JOUR", theme_night: "NUIT",
+      locked: "VERROUILLÉ", active_slot: "ACTIF · SLOT", lock_zeroize: "VERROUILLER / EFFACER",
+      modules: "MODULES", nav_access: "ACCÈS VOLUME", nav_files: "STOCKAGE COFFRE",
+      nav_audit: "AUDIT INTÉGRITÉ", nav_keys: "CLÉS & CONTRAINTE",
+      nav_shamir: "SHAMIR M-SUR-N", nav_diag: "DIAGNOSTICS", nav_drops: "COLIS SCELLÉS", nav_shred: "CRYPTO-SHRED",
+      active_target: "CIBLE ACTIVE", rt_status: "STATUT", rt_cipher: "CHIFFRE",
+      rt_slot: "SLOT", rt_sectors: "SECTEURS", rt_alloc: "UTILISÉ",
+      mounted: "MONTÉ", disconnected: "DÉCONNECTÉ",
+      h_access: "01 // ACCÈS & PROVISIONNEMENT", h_access_sub: "AES-XTS · CASCADE SERPENT · ML-KEM-1024 · FURTIF",
+      unlock_title: "DÉVERROUILLER VOLUME", auth_req: "AUTH REQUISE",
+      create_title: "INITIALISER UN VOLUME CHIFFRÉ",
+      lbl_vol_path: "CHEMIN VOLUME", lbl_dest_path: "DESTINATION",
+      lbl_pass: "PHRASE SECRÈTE", lbl_confirm_pass: "CONFIRMER", lbl_new_pass: "NOUVELLE PHRASE",
+      lbl_kf_opt: "FICHIER-CLÉ 2FA (OPTIONNEL)", lbl_pq_opt: "CLÉ PQ ML-KEM-1024 (OPTIONNEL)",
+      lbl_detached_opt: "EN-TÊTE FURTIF DÉTACHÉ (OPTIONNEL)", lbl_new_kf: "NOUVEAU FICHIER-CLÉ",
+      lbl_cap: "CAPACITÉ", lbl_cipher_mode: "CHIFFREMENT", lbl_kdf: "PROFIL ARGON2ID", lbl_slot_label: "LIBELLÉ SLOT",
+      ph_pass: "Phrase secrète", ph_kf: "Fichier .key",
+      btn_browse: "PARCOURIR", btn_dir: "DOSSIER", btn_unlock: "DÉVERROUILLER", btn_deriving: "DÉRIVATION...",
+      btn_inspect: "INSPECTER", btn_keygen: "KEYGEN 64O", btn_pq_keygen: "PQ-KEYGEN",
+      btn_create: "FORMATER & MONTER", btn_init: "INITIALISATION...",
+      h_files: "02 // STOCKAGE CHIFFRÉ", lbl_prefix: "PRÉFIXE SOUS-DOSSIER", btn_refresh: "ACTUALISER",
+      ingest_head: "IMPORTER FICHIERS", ingest_sub: "Déposez ici ou cliquez",
+      th_path: "CHEMIN", th_size: "TAILLE", th_sha: "SHA-256", th_ops: "OPÉRATIONS",
+      no_files: "AUCUN FICHIER", btn_extract: "EXTRAIRE", btn_wipe: "EFFACER",
+      h_audit: "03 // AUDIT D'INTÉGRITÉ", audit_ctrl: "CONTRÔLES", full_scan: "SCAN COMPLET",
+      btn_audit: "LANCER AUDIT", btn_scanning: "ANALYSE...", btn_repair: "RÉPARER EN-TÊTES", btn_export: "EXPORTER (.JSON)",
+      m_prim: "MAC PRIMAIRE", m_back: "MAC SECOURS", m_sync: "SYNCHRO", m_sec: "SECTEURS",
+      sector_map_lbl: "MATRICE SECTEURS (VERT: OK · ROUGE: ALTÉRATION)",
+      pass: "VALIDE", fail: "ÉCHEC", synced: "SYNCHRO", diverged: "DIVERGENCE", detached: "DÉTACHÉ",
+      h_keys: "04 // SLOTS CLÉS & CONTRAINTE", slots_title: "SLOTS CONFIGURÉS",
+      th_slot: "SLOT", th_state: "ÉTAT", th_label: "LIBELLÉ", th_kdf: "KDF", th_factors: "FACTEURS", th_action: "ACTION",
+      slot_empty: "VIDE", slot_in_use: "ACTIF", slot_active: "PRÊT", btn_revoke: "RÉVOQUER",
+      add_slot_title: "AJOUTER SLOT SECONDAIRE / PQ", btn_add_slot: "CRÉER SLOT",
+      duress_title: "SLOT DE CONTRAINTE SILENCIEUX (DURESS)",
+      duress_desc: "Indiscernable d'un slot normal. Saisir cette phrase détruit silencieusement tous les en-têtes (3x CSPRNG).",
+      lbl_decoy_label: "LIBELLÉ LEURRE", lbl_duress_pass: "PHRASE DE CONTRAINTE", btn_add_duress: "ARMER SLOT DURESS",
+      rot_title: "ROTATION SLOT ACTIF", btn_rot: "ROTATION",
+      h_shamir: "05 // PARTAGE DE SECRET SHAMIR (M-SUR-N)",
+      shamir_split_title: "DIVISER LA CLÉ EN PARTS", shamir_comb_title: "RECONSTRUIRE DEPUIS M PARTS",
+      lbl_threshold: "SEUIL (M)", lbl_total_shares: "TOTAL PARTS (N)",
+      lbl_sh_in: "FICHIER-CLÉ EXISTANT (VIDE = NOUVEAU 32O)", lbl_sh_save: "SAUVEGARDER CLÉ (OPTIONNEL)",
+      btn_sh_split: "GÉNÉRER PARTS", lbl_sh_paste: "COLLER M PARTS (UNE PAR LIGNE)",
+      lbl_sh_out: "FICHIER DE SORTIE", btn_sh_comb: "RECONSTRUIRE",
+      h_diag: "06 // DIAGNOSTICS & ENTROPIE",
+      bench_title: "BENCHMARK MATÉRIEL", lbl_bench_sec: "SECTEURS", btn_bench: "LANCER BENCHMARK",
+      ent_title: "ENTROPIE SHANNON & FURTIVITÉ", btn_ent: "ANALYSER ENTROPIE",
+      h_drops: "07 // COLIS SCELLÉS POST-QUANTIQUES (.FLCPACK)",
+      h_shred: "08 // CRYPTO-DESTRUCTION", shred_title: "DESTRUCTION DES EN-TÊTES",
+      shred_desc: "Écrase tous les en-têtes 3x avec CSPRNG + fsync. Irréversible.",
+      lbl_shred_confirm: "SAISIR \"SHRED\"", btn_shred: "EXÉCUTER SHRED",
+      audit_log: "JOURNAL DE SESSION", btn_clear: "EFFACER", btn_select_dir: "CHOISIR DOSSIER",
+      parent: "PARENT", dir: "DOSSIER",
+      log_ready: "Falcon v0.4 COMSEC prêt (127.0.0.1, POST PASS).",
+      err_path_pass: "Chemin et phrase requis.", err_dest: "Destination requise.",
+      err_empty_pass: "Phrase vide interdite.", err_mismatch: "Phrases différentes.",
+      err_shred_auth: "Saisissez exactement 'SHRED'.", ok_locked: "Verrouillé. RAM effacée.",
+      ok_repaired: "En-têtes réparés.", warn_backup: "MONTÉ VIA EN-TÊTE DE SECOURS.",
+      confirm_wipe: "Supprimer définitivement:", confirm_revoke: "Révoquer slot",
+      entry_loopback: "LOOPBACK 127.0.0.1 · JETON DE SESSION ACTIF",
+      entry_t_post: "AUTOTEST POST", entry_t_mem: "PROTECTION MÉMOIRE",
+      entry_t_usb: "COUPE-CIRCUIT USB", entry_t_net: "EXPOSITION RÉSEAU",
+      ec1_title: "DÉVERROUILLER UN VOLUME",
+      ec1_desc: "Monter des volumes standard, furtifs (.fhdr) ou cachés directement en RAM verrouillée.",
+      ec2_title: "CRÉER UN VOLUME CHIFFRÉ",
+      ec2_desc: "Initialiser un conteneur avec cascade Serpent, Mission TTL, Dead-Man's Switch et journal Ed25519.",
+      ec3_title: "COLIS SCELLÉS (.FLCPACK)",
+      ec3_desc: "Chiffrer et signer des fichiers en post-quantique vers la clé publique d'un opérateur sans mot de passe partagé.",
+      ec4_title: "SHAMIR M-SUR-N & DIAGNOSTICS",
+      ec4_desc: "Diviser les clés en parts GF(256) avec cartes QR imprimables, ou auditer l'entropie et les débits.",
+      entry_btn_enter: "OUVRIR LA CONSOLE →",
+      entry_btn_diag: "DIAGNOSTICS & POST",
+      entry_hint: "TOUCHES [1-4] LANCEMENT · [ENTRÉE] CONSOLE",
+      entry_skip: "IGNORER L'ÉCRAN D'ENTRÉE",
+      btn_update: "MISE À JOUR", btn_bug: "SIGNALER BUG"
+    },
+    es: {
+      brand_sub: "CONTROLADOR CRIPTOGRÁFICO // v0.4.0",
+      theme_day: "DÍA", theme_night: "NOCHE",
+      locked: "BLOQUEADO", active_slot: "ACTIVO · RANURA", lock_zeroize: "BLOQUEAR / BORRAR",
+      modules: "MÓDULOS", nav_access: "ACCESO VOLUMEN", nav_files: "ALMACENAMIENTO",
+      nav_audit: "AUDITORÍA", nav_keys: "CLAVES Y PÁNICO",
+      nav_shamir: "SHAMIR M-DE-N", nav_diag: "DIAGNÓSTICO", nav_drops: "PAQUETES SELLADOS", nav_shred: "CRYPTO-SHRED",
+      active_target: "OBJETIVO ACTIVO", rt_status: "ESTADO", rt_cipher: "CIFRADO",
+      rt_slot: "RANURA", rt_sectors: "SECTORES", rt_alloc: "USO",
+      mounted: "MONTADO", disconnected: "DESCONECTADO",
+      h_access: "01 // ACCESO Y PROVISIÓN", h_access_sub: "AES-XTS · CASCADA SERPENT · ML-KEM-1024 · SIGILO",
+      unlock_title: "DESBLOQUEAR VOLUMEN", auth_req: "AUTH REQUERIDA",
+      create_title: "CREAR VOLUMEN CIFRADO",
+      lbl_vol_path: "RUTA VOLUMEN", lbl_dest_path: "DESTINO",
+      lbl_pass: "CONTRASEÑA", lbl_confirm_pass: "CONFIRMAR", lbl_new_pass: "NUEVA CONTRASEÑA",
+      lbl_kf_opt: "KEYFILE 2FA (OPCIONAL)", lbl_pq_opt: "CLAVE PQ ML-KEM-1024 (OPCIONAL)",
+      lbl_detached_opt: "CABECERA SIGILOSA SEPARADA (OPCIONAL)", lbl_new_kf: "NUEVO KEYFILE",
+      lbl_cap: "CAPACIDAD", lbl_cipher_mode: "MODO CIFRADO", lbl_kdf: "PERFIL ARGON2ID", lbl_slot_label: "ETIQUETA",
+      ph_pass: "Contraseña", ph_kf: "Archivo .key",
+      btn_browse: "EXPLORAR", btn_dir: "CARPETA", btn_unlock: "DESBLOQUEAR", btn_deriving: "DERIVANDO...",
+      btn_inspect: "INSPECCIONAR", btn_keygen: "KEYGEN 64B", btn_pq_keygen: "PQ-KEYGEN",
+      btn_create: "FORMATEAR Y MONTAR", btn_init: "INICIALIZANDO...",
+      h_files: "02 // ALMACENAMIENTO CIFRADO", lbl_prefix: "PREFIJO SUBCARPETA", btn_refresh: "ACTUALIZAR",
+      ingest_head: "INGRESAR ARCHIVOS", ingest_sub: "Arrastra aquí o haz clic",
+      th_path: "RUTA", th_size: "TAMAÑO", th_sha: "SHA-256", th_ops: "ACCIONES",
+      no_files: "SIN ARCHIVOS", btn_extract: "EXTRAER", btn_wipe: "BORRAR",
+      h_audit: "03 // AUDITORÍA DE INTEGRIDAD", audit_ctrl: "CONTROLES", full_scan: "ESCANEO COMPLETO",
+      btn_audit: "EJECUTAR AUDITORÍA", btn_scanning: "ESCANEANDO...", btn_repair: "REPARAR CABECERAS", btn_export: "EXPORTAR (.JSON)",
+      m_prim: "MAC PRIMARIA", m_back: "MAC RESPALDO", m_sync: "SINCRONÍA", m_sec: "SECTORES",
+      sector_map_lbl: "MATRIZ SECTORES (VERDE: OK · ROJO: ALTERADO)",
+      pass: "VÁLIDO", fail: "FALLO", synced: "SINCRONIZADO", diverged: "DIVERGENTE", detached: "SEPARADA",
+      h_keys: "04 // RANURAS DE CLAVE Y PÁNICO", slots_title: "RANURAS CONFIGURADAS",
+      th_slot: "RANURA", th_state: "ESTADO", th_label: "ETIQUETA", th_kdf: "KDF", th_factors: "FACTORES", th_action: "ACCIÓN",
+      slot_empty: "VACÍA", slot_in_use: "EN USO", slot_active: "ACTIVA", btn_revoke: "REVOCAR",
+      add_slot_title: "AÑADIR RANURA SECUNDARIA / PQ", btn_add_slot: "CREAR RANURA",
+      duress_title: "RANURA DE COACCIÓN SILENCIOSA (DURESS)",
+      duress_desc: "Indistinguible de una ranura normal. Introducir esta contraseña destruye silenciosamente todas las cabeceras (3x CSPRNG).",
+      lbl_decoy_label: "ETIQUETA SEÑUELO", lbl_duress_pass: "CONTRASEÑA DE PÁNICO", btn_add_duress: "ARMAR RANURA DURESS",
+      rot_title: "ROTAR CREDENCIALES", btn_rot: "ROTAR",
+      h_shamir: "05 // SHAMIR SECRET SHARING (M-DE-N)",
+      shamir_split_title: "DIVIDIR CLAVE EN PARTES", shamir_comb_title: "RECONSTRUIR DESDE M PARTES",
+      lbl_threshold: "UMBRAL (M)", lbl_total_shares: "TOTAL PARTES (N)",
+      lbl_sh_in: "KEYFILE EXISTENTE (VACÍO = NUEVA 32B)", lbl_sh_save: "GUARDAR KEYFILE (OPCIONAL)",
+      btn_sh_split: "GENERAR PARTES", lbl_sh_paste: "PEGAR M PARTES (UNA POR LÍNEA)",
+      lbl_sh_out: "KEYFILE DE SALIDA", btn_sh_comb: "RECONSTRUIR",
+      h_diag: "06 // DIAGNÓSTICO Y ENTROPÍA",
+      bench_title: "BENCHMARK HARDWARE", lbl_bench_sec: "SECTORES", btn_bench: "EJECUTAR BENCHMARK",
+      ent_title: "ENTROPÍA SHANNON Y SIGILO", btn_ent: "ANALIZAR ENTROPÍA",
+      h_drops: "07 // PAQUETES SELLADOS TÁCTICOS (.FLCPACK)",
+      h_shred: "08 // CRIPTO-DESTRUCCIÓN", shred_title: "DESTRUCCIÓN DE CABECERAS",
+      shred_desc: "Sobrescribe todas las cabeceras 3x con CSPRNG + fsync. Irreversible.",
+      lbl_shred_confirm: "ESCRIBE \"SHRED\"", btn_shred: "EJECUTAR SHRED",
+      audit_log: "REGISTRO DE SESIÓN", btn_clear: "LIMPIAR", btn_select_dir: "ELEGIR CARPETA",
+      parent: "SUPERIOR", dir: "CARPETA",
+      log_ready: "Falcon v0.4 COMSEC listo (127.0.0.1, POST PASS).",
+      err_path_pass: "Ruta y contraseña requeridas.", err_dest: "Destino requerido.",
+      err_empty_pass: "Contraseña vacía.", err_mismatch: "No coinciden.",
+      err_shred_auth: "Escribe 'SHRED'.", ok_locked: "Bloqueado. RAM borrada.",
+      ok_repaired: "Cabeceras reparadas.", warn_backup: "MONTADO DESDE RESPALDO.",
+      confirm_wipe: "Eliminar permanentemente:", confirm_revoke: "Revocar ranura",
+      entry_loopback: "LOOPBACK 127.0.0.1 · TOKEN DE SESIÓN ACTIVO",
+      entry_t_post: "AUTOTEST POST", entry_t_mem: "PROTECCIÓN RAM",
+      entry_t_usb: "USB KILL-SWITCH", entry_t_net: "RED",
+      ec1_title: "DESBLOQUEAR VOLUMEN",
+      ec1_desc: "Montar volúmenes estándar, sigilosos (.fhdr) u ocultos directamente en RAM bloqueada.",
+      ec2_title: "CREAR NUEVO VOLUMEN",
+      ec2_desc: "Formatear un contenedor con cascada Serpent, Mission TTL, Dead-Man's Switch y custodia Ed25519.",
+      ec3_title: "PAQUETES SELLADOS (.FLCPACK)",
+      ec3_desc: "Cifrar y firmar archivos en post-cuántico hacia la clave pública de otro operador sin contraseña compartida.",
+      ec4_title: "SHAMIR M-DE-N Y DIAGNÓSTICO",
+      ec4_desc: "Dividir claves en partes GF(256) con tarjetas QR imprimibles o analizar entropía y rendimiento.",
+      entry_btn_enter: "ENTRAR A LA CONSOLA →",
+      entry_btn_diag: "DIAGNÓSTICO Y POST",
+      entry_hint: "TECLAS [1-4] ACCESO · [ENTER] CONSOLA",
+      entry_skip: "OMITIR PANTALLA DE INICIO",
+      btn_update: "ACTUALIZAR", btn_bug: "REPORTAR BUG"
+    },
+    it: {
+      brand_sub: "CONTROLLER CRITTOGRAFICO // v0.4.0",
+      theme_day: "GIORNO", theme_night: "NOTTE",
+      locked: "BLOCCATO", active_slot: "ATTIVO · SLOT", lock_zeroize: "BLOCCA / AZZERA",
+      modules: "MODULI", nav_access: "ACCESSO VOLUME", nav_files: "ARCHIVIO VAULT",
+      nav_audit: "AUDIT INTEGRITÀ", nav_keys: "CHIAVI E PANICO",
+      nav_shamir: "SHAMIR M-DI-N", nav_diag: "DIAGNOSTICA", nav_drops: "PACCHETTI SIGILLATI", nav_shred: "CRYPTO-SHRED",
+      active_target: "BERSAGLIO ATTIVO", rt_status: "STATO", rt_cipher: "CIFRARIO",
+      rt_slot: "SLOT", rt_sectors: "SETTORI", rt_alloc: "USO",
+      mounted: "MONTATO", disconnected: "DISCONNESSO",
+      h_access: "01 // ACCESSO E PROVISIONING", h_access_sub: "AES-XTS · CASCATA SERPENT · ML-KEM-1024 · STEALTH",
+      unlock_title: "SBLOCCA VOLUME", auth_req: "AUTH RICHIESTA",
+      create_title: "CREA VOLUME CIFRATO",
+      lbl_vol_path: "PERCORSO VOLUME", lbl_dest_path: "DESTINAZIONE",
+      lbl_pass: "PASSPHRASE", lbl_confirm_pass: "CONFERMA", lbl_new_pass: "NUOVA PASSPHRASE",
+      lbl_kf_opt: "KEYFILE 2FA (OPZIONALE)", lbl_pq_opt: "CHIAVE PQ ML-KEM-1024 (OPZIONALE)",
+      lbl_detached_opt: "HEADER STEALTH SEPARATO (OPZIONALE)", lbl_new_kf: "NUOVO KEYFILE",
+      lbl_cap: "CAPACITÀ", lbl_cipher_mode: "MODALITÀ CIFRARIO", lbl_kdf: "PROFILO ARGON2ID", lbl_slot_label: "ETICHETTA",
+      ph_pass: "Passphrase", ph_kf: "File .key",
+      btn_browse: "SFOGLIA", btn_dir: "CARTELLA", btn_unlock: "SBLOCCA", btn_deriving: "DERIVAZIONE...",
+      btn_inspect: "ISPEZIONA", btn_keygen: "KEYGEN 64B", btn_pq_keygen: "PQ-KEYGEN",
+      btn_create: "FORMATTA E MONTA", btn_init: "INIZIALIZZAZIONE...",
+      h_files: "02 // ARCHIVIO CIFRATO", lbl_prefix: "PREFISSO SOTTOCARTELLA", btn_refresh: "AGGIORNA",
+      ingest_head: "IMPORTA FILE", ingest_sub: "Trascina qui o clicca",
+      th_path: "PERCORSO", th_size: "DIMENSIONE", th_sha: "SHA-256", th_ops: "OPERAZIONI",
+      no_files: "NESSUN FILE", btn_extract: "ESTRAI", btn_wipe: "CANCELLA",
+      h_audit: "03 // AUDIT INTEGRITÀ", audit_ctrl: "CONTROLLI", full_scan: "SCANSIONE COMPLETA",
+      btn_audit: "ESEGUI AUDIT", btn_scanning: "SCANSIONE...", btn_repair: "RIPARA HEADER", btn_export: "ESPORTA (.JSON)",
+      m_prim: "MAC PRIMARIO", m_back: "MAC BACKUP", m_sync: "SINCRO", m_sec: "SETTORI",
+      sector_map_lbl: "MATRICE SETTORI (VERDE: OK · ROSSO: MANOMESSO)",
+      pass: "OK", fail: "ERRORE", synced: "SINCRONIZZATO", diverged: "DIVERGENTE", detached: "SEPARATO",
+      h_keys: "04 // SLOT CHIAVI E PANICO", slots_title: "SLOT CONFIGURATI",
+      th_slot: "SLOT", th_state: "STATO", th_label: "ETICHETTA", th_kdf: "KDF", th_factors: "FATTORI", th_action: "AZIONE",
+      slot_empty: "VUOTO", slot_in_use: "IN USO", slot_active: "ATTIVO", btn_revoke: "REVOCA",
+      add_slot_title: "AGGIUNGI SLOT SECONDARIO / PQ", btn_add_slot: "CREA SLOT",
+      duress_title: "SLOT PANICO SILENZIOSO (DURESS)",
+      duress_desc: "Indistinguibile da uno slot normale. Inserire questa passphrase distrugge silenziosamente tutti gli header (3x CSPRNG).",
+      lbl_decoy_label: "ETICHETTA ESCA", lbl_duress_pass: "PASSPHRASE DI PANICO", btn_add_duress: "ARMA SLOT DURESS",
+      rot_title: "RUOTA CREDENZIALI", btn_rot: "RUOTA",
+      h_shamir: "05 // SHAMIR SECRET SHARING (M-DI-N)",
+      shamir_split_title: "DIVIDI CHIAVE IN QUOTE", shamir_comb_title: "RICOSTRUISCI DA M QUOTE",
+      lbl_threshold: "SOGLIA (M)", lbl_total_shares: "TOTALE QUOTE (N)",
+      lbl_sh_in: "KEYFILE ESISTENTE (VUOTO = NUOVO 32B)", lbl_sh_save: "SALVA KEYFILE (OPZIONALE)",
+      btn_sh_split: "GENERA QUOTE", lbl_sh_paste: "INCOLLA M QUOTE (UNA PER RIGA)",
+      lbl_sh_out: "KEYFILE OUTPUT", btn_sh_comb: "RICOSTRUISCI",
+      h_diag: "06 // DIAGNOSTICA ED ENTROPIA",
+      bench_title: "BENCHMARK HARDWARE", lbl_bench_sec: "SETTORI", btn_bench: "AVVIA BENCHMARK",
+      ent_title: "ENTROPIA SHANNON E STEALTH", btn_ent: "ANALIZZA ENTROPIA",
+      h_drops: "07 // PACCHETTI SIGILLATI TATTICI (.FLCPACK)",
+      h_shred: "08 // CRIPTO-DISTRUZIONE", shred_title: "DISTRUZIONE HEADER",
+      shred_desc: "Sovrascrive tutti gli header 3x con CSPRNG + fsync. Irreversibile.",
+      lbl_shred_confirm: "DIGITA \"SHRED\"", btn_shred: "ESEGUI SHRED",
+      audit_log: "REGISTRO DI SESSIONE", btn_clear: "PULISCI", btn_select_dir: "SELEZIONA CARTELLA",
+      parent: "SUPERIORE", dir: "CARTELLA",
+      log_ready: "Falcon v0.4 COMSEC pronto (127.0.0.1, POST PASS).",
+      err_path_pass: "Percorso e passphrase richiesti.", err_dest: "Destinazione richiesta.",
+      err_empty_pass: "Passphrase vuota.", err_mismatch: "Non coincidono.",
+      err_shred_auth: "Digita 'SHRED'.", ok_locked: "Bloccato. RAM azzerata.",
+      ok_repaired: "Header riparati.", warn_backup: "MONTATO DA BACKUP.",
+      confirm_wipe: "Eliminare definitivamente:", confirm_revoke: "Revocare slot",
+      entry_loopback: "LOOPBACK 127.0.0.1 · TOKEN DI SESSIONE ATTIVO",
+      entry_t_post: "AUTOTEST POST", entry_t_mem: "PROTEZIONE RAM",
+      entry_t_usb: "USB KILL-SWITCH", entry_t_net: "ESPOSIZIONE RETE",
+      ec1_title: "SBLOCCA VOLUME ESISTENTE",
+      ec1_desc: "Monta volumi standard, stealth (.fhdr) o nascosti direttamente in RAM bloccata.",
+      ec2_title: "CREA NUOVO VOLUME",
+      ec2_desc: "Formatta un contenitore con cascata Serpent, Mission TTL, Dead-Man's Switch e custodia Ed25519.",
+      ec3_title: "PACCHETTI SIGILLATI (.FLCPACK)",
+      ec3_desc: "Cifra e firma file post-quantistici verso la chiave pubblica di un operatore senza password condivisa.",
+      ec4_title: "SHAMIR M-DI-N E DIAGNOSTICA",
+      ec4_desc: "Dividi le chiavi in quote GF(256) con schede QR stampabili o analizza entropia e benchmark.",
+      entry_btn_enter: "ENTRA NELLA CONSOLE →",
+      entry_btn_diag: "DIAGNOSTICA E POST",
+      entry_hint: "TASTI [1-4] AVVIO · [INVIO] CONSOLE",
+      entry_skip: "SALTA SCHERMATA INIZIALE",
+      btn_update: "AGGIORNA", btn_bug: "SEGNALA BUG"
+    }
+  };
+
+  let lang = localStorage.getItem("falcon_lang") || "en";
+  if (!I18N[lang]) lang = "en";
+  let theme = localStorage.getItem("falcon_theme") || "dark";
+
+  let statusState = null;
+  let lastAudit = null;
+  let lastCustody = null;
+  let lastKeycards = [];
+  let pickerTarget = null;
+  let pickerMode = "file";
+  let pickerDir = "";
+
+  function t(key) {
+    return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+  }
+
+  function applyTheme(next) {
+    theme = next === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("falcon_theme", theme);
+    const label = theme === "dark" ? t("theme_day") : t("theme_night");
+    document.getElementById("btnTheme").textContent = label;
+    const eb = document.getElementById("btnEntryTheme");
+    if (eb) eb.textContent = label;
+  }
+
+  function toggleTheme() {
+    applyTheme(theme === "dark" ? "light" : "dark");
+    logEvent("INFO", `Display mode -> ${theme.toUpperCase()}`);
+  }
+
+  function applyTranslations() {
+    document.documentElement.lang = lang;
+    document.getElementById("langSelect").value = lang;
+    const elang = document.getElementById("entryLangSelect");
+    if (elang) elang.value = lang;
+    document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+    const label = theme === "dark" ? t("theme_day") : t("theme_night");
+    document.getElementById("btnTheme").textContent = label;
+    const eb = document.getElementById("btnEntryTheme");
+    if (eb) eb.textContent = label;
+    if (statusState) renderStatus(statusState);
+    if (lastAudit) renderAuditMetrics(lastAudit);
+  }
+
+  function setLang(code) {
+    if (!I18N[code]) return;
+    lang = code;
+    localStorage.setItem("falcon_lang", lang);
+    applyTranslations();
+    if (statusState && statusState.unlocked) refreshFiles();
+    logEvent("INFO", `Language -> ${lang.toUpperCase()}`);
+  }
+
+  function utcNow() { return new Date().toISOString().slice(11, 19) + "Z"; }
+  function updateClock() {
+    const now = utcNow();
+    document.getElementById("zuluClock").textContent = now;
+    const ec = document.getElementById("entryClock");
+    if (ec) ec.textContent = now;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  function enterConsole(viewName = "access", focusId = null) {
+    document.getElementById("entryGate").classList.add("hidden");
+    selectView(viewName);
+    if (focusId) {
+      setTimeout(() => {
+        const el = document.getElementById(focusId);
+        if (el) { el.focus(); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      }, 40);
+    }
+  }
+
+  function showEntryGate() {
+    document.getElementById("entryGate").classList.remove("hidden");
+  }
+
+  function toggleSkipEntry(checked) {
+    localStorage.setItem("falcon_skip_entry", checked ? "1" : "0");
+  }
+
+  function logEvent(lvl, msg) {
+    const body = document.getElementById("logBody");
+    const row = document.createElement("div");
+    row.className = "log-line";
+    row.innerHTML = `<span class="log-ts">${utcNow()}</span><span class="log-lvl ${lvl}">[${lvl}]</span><span class="log-msg">${escapeHtml(msg)}</span>`;
+    body.appendChild(row);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function clearLog() { document.getElementById("logBody").innerHTML = ""; }
+  function showAlert(kind, msg) {
+    const box = document.getElementById("alertBox");
+    box.className = "alert show " + kind;
+    box.textContent = msg;
+    logEvent(kind === "err" ? "ERR" : kind === "warn" ? "WARN" : "OK", msg);
+  }
+  function clearAlert() { document.getElementById("alertBox").className = "alert"; }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function fmtBytes(b) {
+    if (b >= 1024 ** 3) return (b / 1024 ** 3).toFixed(2) + " GiB";
+    if (b >= 1024 ** 2) return (b / 1024 ** 2).toFixed(2) + " MiB";
+    if (b >= 1024) return (b / 1024).toFixed(2) + " KiB";
+    return b + " B";
+  }
+
+  async function api(path, opts = {}) {
+    const headers = Object.assign({ "X-Falcon-Token": TOKEN }, opts.headers || {});
+    const res = await fetch(path, Object.assign({}, opts, { headers }));
+    const ct = res.headers.get("content-type") || "";
+    if (!res.ok) {
+      let msg = "HTTP " + res.status;
+      if (ct.includes("application/json")) {
+        const j = await res.json().catch(() => ({}));
+        if (j.error) msg = j.error;
+      } else {
+        const txt = await res.text().catch(() => "");
+        if (txt) msg = txt;
+      }
+      throw new Error(msg);
+    }
+    return ct.includes("application/json") ? res.json() : res;
+  }
+
+  function selectView(name) {
+    const needsUnlock = ["files", "audit", "keys", "shred"].includes(name);
+    if (needsUnlock && (!statusState || !statusState.unlocked)) return;
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+    ["access", "files", "audit", "keys", "shamir", "diag", "drops", "shred"].forEach(v => {
+      document.getElementById("view-" + v).classList.toggle("hidden", v !== name);
+    });
+  }
+
+  async function refreshStatus(switchToFilesOnUnlock = false) {
+    try {
+      const st = await api("/api/status");
+      statusState = st;
+      renderStatus(st);
+      if (st.unlocked) {
+        document.getElementById("entryGate").classList.add("hidden");
+        await refreshFiles();
+        if (switchToFilesOnUnlock) selectView("files");
+      } else if (["files", "audit", "keys", "shred"].some(v => !document.getElementById("view-" + v).classList.contains("hidden"))) {
+        selectView("access");
+      }
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  function renderPostTable(rep) {
+    if (!rep) return;
+    const badge = document.getElementById("postBadge");
+    badge.textContent = rep.passed ? "PASS" : "FAIL";
+    badge.style.color = rep.passed ? "var(--green)" : "var(--red)";
+    document.getElementById("postMeta").textContent =
+      `${rep.passed ? "ALL PASS" : "FAILED"} · ${rep.duration_ms.toFixed(2)} ms`;
+    const n = (rep.checks || []).length;
+    const epv = document.getElementById("entryPostVal");
+    if (epv) epv.textContent = `${n}/${n} ${rep.passed ? "PASS" : "FAIL"}`;
+    const etp = document.getElementById("etPost");
+    if (etp) {
+      etp.textContent = `${rep.passed ? "VERIFIED" : "FAILED"} · ${rep.duration_ms.toFixed(2)} ms`;
+      etp.style.color = rep.passed ? "var(--green)" : "var(--red)";
+    }
+    document.getElementById("postBody").innerHTML = (rep.checks || []).map(c => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td style="color:var(--fg-dim)">${escapeHtml(c.standard)}</td>
+        <td class="right"><span class="tag ${c.passed ? "ok" : "bad"}">${c.passed ? "PASS" : "FAIL"}</span></td>
+      </tr>
+    `).join("");
+  }
+
+  async function rerunPost() {
+    clearAlert();
+    try {
+      const rep = await api("/api/diag/post", { method: "POST" });
+      renderPostTable(rep);
+      showAlert("ok", `FIPS 140-3 POST: ${rep.checks.length}/${rep.checks.length} checks PASSED (${rep.duration_ms.toFixed(2)} ms).`);
+    } catch (e) {
+      showAlert("err", "FIPS 140-3 POST FAILED: " + e.message);
+    }
+  }
+
+  function renderStatus(st) {
+    const tag = document.getElementById("stateTag");
+    const txt = document.getElementById("stateText");
+    const lockBtn = document.getElementById("btnTopLock");
+    const navIds = ["navFiles", "navAudit", "navKeys", "navShred"];
+
+    if (st.post_report) renderPostTable(st.post_report);
+
+    const usbEl = document.getElementById("usbBadge");
+    const etUsb = document.getElementById("etUsb");
+    if (st.usb_watch) {
+      usbEl.textContent = "ARMED";
+      usbEl.style.color = "var(--amber)";
+      if (etUsb) { etUsb.textContent = "ARMED (250ms)"; etUsb.style.color = "var(--amber)"; }
+    } else {
+      usbEl.textContent = "OFF";
+      usbEl.style.color = "var(--fg-dim)";
+      if (etUsb) { etUsb.textContent = "STANDBY (250ms)"; etUsb.style.color = "var(--fg)"; }
+    }
+
+    if (st.kill_switch_tripped && !st.unlocked) {
+      showAlert("err", "USB KILL-SWITCH TRIPPED — SESSION LOCKED & RAM KEYS ZEROIZED.");
+    }
+
+    if (st.unlocked) {
+      tag.classList.add("active");
+      txt.textContent = (st.hidden ? "HIDDEN · " : "") + `${t("active_slot")} ${st.unlocked_slot}`;
+      lockBtn.classList.remove("hidden");
+      navIds.forEach(id => document.getElementById(id).disabled = false);
+
+      const pct = st.total_sectors ? Math.round((st.used_sectors / st.total_sectors) * 100) : 0;
+      document.getElementById("rtState").textContent = st.hidden ? "HIDDEN" : (st.detached_header ? "STEALTH" : t("mounted"));
+      document.getElementById("rtCipher").textContent = st.cipher_mode.includes("Serpent") ? "AES+SERPENT" : "AES-256-XTS";
+      document.getElementById("rtUuid").textContent = st.uuid.slice(0, 18) + "..";
+      document.getElementById("rtSlot").textContent = `${t("rt_slot")} ${st.unlocked_slot}`;
+      document.getElementById("rtSectors").textContent = st.used_sectors + "/" + st.total_sectors;
+      document.getElementById("rtAlloc").textContent = pct + "%";
+      document.getElementById("rtMeter").style.width = pct + "%";
+
+      document.getElementById("filesHeaderPath").textContent = st.path + (st.hidden ? " [HIDDEN]" : "");
+      document.getElementById("shredTarget").value = st.path;
+      document.getElementById("hiddenProvisionPane").classList.toggle("hidden", !!st.hidden);
+      if (!document.getElementById("entPath").value) document.getElementById("entPath").value = st.path;
+      renderSlots(st.key_slots || [], st.unlocked_slot);
+
+      if (st.recovered_from_backup) showAlert("warn", t("warn_backup"));
+    } else {
+      tag.classList.remove("active");
+      txt.textContent = t("locked");
+      lockBtn.classList.add("hidden");
+      navIds.forEach(id => document.getElementById(id).disabled = true);
+
+      document.getElementById("rtState").textContent = t("disconnected");
+      document.getElementById("rtCipher").textContent = "-";
+      document.getElementById("rtUuid").textContent = "-";
+      document.getElementById("rtSlot").textContent = "-";
+      document.getElementById("rtSectors").textContent = "-";
+      document.getElementById("rtAlloc").textContent = "-";
+      document.getElementById("rtMeter").style.width = "0%";
+    }
+  }
+
+  function renderSlots(slots, activeSlot) {
+    const tbody = document.getElementById("slotTableBody");
+    tbody.innerHTML = slots.map((s, i) => {
+      if (!s.active) {
+        return `<tr>
+          <td>${t("th_slot")} ${i}</td>
+          <td><span class="tag">${t("slot_empty")}</span></td>
+          <td style="color:var(--fg-mute)">-</td>
+          <td style="color:var(--fg-mute)">-</td>
+          <td style="color:var(--fg-mute)">-</td>
+          <td class="right">-</td>
+        </tr>`;
+      }
+      const factors = [
+        '<span class="tag">PASS</span>',
+        s.requires_keyfile ? '<span class="tag warn">KEYFILE</span>' : '',
+        s.pq_hybrid ? '<span class="tag ok">ML-KEM-1024</span>' : ''
+      ].filter(Boolean).join(" ");
+
+      return `<tr>
+        <td><strong>${t("th_slot")} ${i}</strong></td>
+        <td><span class="tag ok">${i === activeSlot ? t("slot_in_use") : t("slot_active")}</span></td>
+        <td>${escapeHtml(s.label || "-")}</td>
+        <td>Argon2id · ${Math.round(s.memory_kib / 1024)} MiB · t=${s.iterations} · p=${s.parallelism}</td>
+        <td>${factors}</td>
+        <td class="right"><button class="cmd danger xs" onclick="removeKeyslot(${i})">${t("btn_revoke")}</button></td>
+      </tr>`;
+    }).join("");
+  }
+
+  async function inspectHeader() {
+    clearAlert();
+    const path = document.getElementById("unlockPath").value.trim();
+    const detached_header_path = document.getElementById("unlockHeader").value.trim() || null;
+    if (!path) return showAlert("err", t("err_path_pass"));
+    try {
+      const info = await api("/api/info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, detached_header_path })
+      });
+      const box = document.getElementById("infoBox");
+      box.classList.remove("hidden");
+      box.textContent =
+        `UUID      : ${info.uuid}\n` +
+        `HEADER    : ${info.detached ? "DETACHED (STEALTH)" : (info.from_backup ? "BACKUP (PRIMARY DAMAGED)" : "PRIMARY")}\n` +
+        `CIPHER    : ${info.cipher_mode} (${info.sector_size}B)\n` +
+        `INTEGRITY : ${info.integrity ? "BLAKE3-256" : "OFF"}\n` +
+        `CAPACITY  : ${fmtBytes(info.data_sectors * info.sector_size)} (${info.data_sectors} sectors)\n` +
+        `SLOTS     : ${info.key_slots.filter(s => s.active).length}/4`;
+      logEvent("INFO", `Header inspected: ${path} (${info.cipher_mode})`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function unlockVolume() {
+    clearAlert();
+    const path = document.getElementById("unlockPath").value.trim();
+    const passphrase = document.getElementById("unlockPass").value;
+    const keyfile_path = document.getElementById("unlockKeyfile").value.trim() || null;
+    const pq_key_path = document.getElementById("unlockPqKey").value.trim() || null;
+    const detached_header_path = document.getElementById("unlockHeader").value.trim() || null;
+    const usb_watch_path = document.getElementById("unlockUsbWatch").value.trim() || null;
+    const hidden = document.getElementById("unlockHidden").checked;
+    if (!path || !passphrase) return showAlert("err", t("err_path_pass"));
+
+    const btn = document.getElementById("btnUnlock");
+    btn.disabled = true;
+    btn.textContent = t("btn_deriving");
+    try {
+      await api("/api/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, passphrase, keyfile_path, pq_key_path, detached_header_path, hidden, usb_watch_path })
+      });
+      document.getElementById("unlockPass").value = "";
+      showAlert("ok", `Unlocked: ${path}`);
+      await refreshStatus(true);
+    } catch (e) {
+      showAlert("err", e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = t("btn_unlock");
+    }
+  }
+
+  async function createVolume() {
+    clearAlert();
+    const path = document.getElementById("createPath").value.trim();
+    const size = document.getElementById("createSize").value;
+    const cascade = document.getElementById("createCipher").value === "cascade";
+    const profile = document.getElementById("createProfile").value;
+    const label = document.getElementById("createLabel").value.trim() || "primary";
+    const passphrase = document.getElementById("createPass").value;
+    const pass2 = document.getElementById("createPass2").value;
+    const keyfile_path = document.getElementById("createKeyfile").value.trim() || null;
+    const pq_key_path = document.getElementById("createPqKey").value.trim() || null;
+    const detached_header_path = document.getElementById("createHeader").value.trim() || null;
+    const ttl_hours = parseInt(document.getElementById("createTtl").value, 10) || 0;
+    const max_attempts = parseInt(document.getElementById("createMaxAttempts").value, 10) || 0;
+
+    if (!path) return showAlert("err", t("err_dest"));
+    if (!passphrase) return showAlert("err", t("err_empty_pass"));
+    if (passphrase !== pass2) return showAlert("err", t("err_mismatch"));
+
+    const btn = document.getElementById("btnCreate");
+    btn.disabled = true;
+    btn.textContent = t("btn_init");
+    try {
+      await api("/api/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, size, profile, label, cascade, ttl_hours, max_attempts, passphrase, keyfile_path, pq_key_path, detached_header_path })
+      });
+      document.getElementById("createPass").value = "";
+      document.getElementById("createPass2").value = "";
+      showAlert("ok", `Formatted & mounted ${size}: ${path}`);
+      await refreshStatus(true);
+    } catch (e) {
+      showAlert("err", e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = t("btn_create");
+    }
+  }
+
+  async function generateKeyfile() {
+    clearAlert();
+    let path = document.getElementById("createKeyfile").value.trim();
+    if (!path) {
+      const vol = document.getElementById("createPath").value.trim();
+      path = vol ? vol.replace(/\.[^.\/]+$/, "") + ".key" : "/tmp/falcon.key";
+      document.getElementById("createKeyfile").value = path;
+    }
+    try {
+      await api("/api/keygen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, bytes: 64 })
+      });
+      showAlert("ok", `Keyfile (64B CSPRNG): ${path}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function generatePqKey() {
+    clearAlert();
+    let path = document.getElementById("createPqKey").value.trim();
+    if (!path) {
+      const vol = document.getElementById("createPath").value.trim();
+      path = vol ? vol.replace(/\.[^.\/]+$/, "") + ".pqkey" : "/tmp/falcon.pqkey";
+      document.getElementById("createPqKey").value = path;
+    }
+    try {
+      const r = await api("/api/pq-keygen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path })
+      });
+      showAlert("ok", `Generated ${r.algorithm} keypair (${r.bytes}B): ${r.path}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function lockVolume() {
+    clearAlert();
+    try {
+      await api("/api/lock", { method: "POST" });
+      showAlert("ok", t("ok_locked"));
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function refreshFiles() {
+    try {
+      const data = await api("/api/files");
+      const tbody = document.getElementById("filesBody");
+      if (!data.files.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--fg-mute)">${t("no_files")}</td></tr>`;
+      } else {
+        tbody.innerHTML = data.files.map(f => `
+          <tr>
+            <td>${escapeHtml(f.path)}</td>
+            <td>${fmtBytes(f.size)}</td>
+            <td style="color:var(--fg-dim)">${f.sha256.slice(0, 24)}</td>
+            <td class="right">
+              <button class="cmd xs" onclick='downloadFile(${JSON.stringify(f.path)})'>${t("btn_extract")}</button>
+              <button class="cmd danger xs" onclick='deleteFile(${JSON.stringify(f.path)})'>${t("btn_wipe")}</button>
+            </td>
+          </tr>
+        `).join("");
+      }
+      if (data.stats) {
+        const pct = data.stats.total_sectors ? Math.round((data.stats.used_sectors / data.stats.total_sectors) * 100) : 0;
+        document.getElementById("rtSectors").textContent = data.stats.used_sectors + "/" + data.stats.total_sectors;
+        document.getElementById("rtAlloc").textContent = pct + "%";
+        document.getElementById("rtMeter").style.width = pct + "%";
+      }
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function uploadFiles(files) {
+    clearAlert();
+    const prefix = document.getElementById("uploadPrefix").value.trim().replace(/^\/+|\/+$/g, "");
+    const sanitize = document.getElementById("opsecSanitize").checked;
+    for (const file of files) {
+      const vaultPath = prefix ? `${prefix}/${file.name}` : file.name;
+      try {
+        const buf = await file.arrayBuffer();
+        const r = await api("/api/files/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-Vault-Path": encodeURIComponent(vaultPath),
+            "X-Opsec-Sanitize": sanitize ? "1" : "0"
+          },
+          body: buf
+        });
+        const sanNote = r.sanitized
+          ? ` · OPSEC(${r.sanitized.format}, -${r.sanitized.bytes_removed}B, ts=0)`
+          : "";
+        showAlert("ok", `Encrypted ${vaultPath} (${fmtBytes(r.size)})${sanNote} · SHA256=${r.sha256.slice(0, 16)}`);
+      } catch (e) {
+        showAlert("err", `${vaultPath}: ${e.message}`);
+        break;
+      }
+    }
+    await refreshFiles();
+  }
+
+  async function createHiddenVolume() {
+    clearAlert();
+    const cascade = document.getElementById("hidCipher").value === "cascade";
+    const profile = document.getElementById("hidProfile").value;
+    const passphrase = document.getElementById("hidPass").value;
+    if (!passphrase) return showAlert("err", t("err_empty_pass"));
+    try {
+      const r = await api("/api/hidden/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile, cascade, label: "inner", passphrase })
+      });
+      document.getElementById("hidPass").value = "";
+      showAlert("ok", `Hidden volume created at outer sector ${r.start_sector} (${r.hidden_sectors} sectors, ${r.cipher_mode}). Outer MACs refreshed.`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function loadCustodyLog() {
+    clearAlert();
+    try {
+      const data = await api("/api/custody");
+      lastCustody = data;
+      const rep = data.report;
+      const badge = document.getElementById("custodyStatusBadge");
+      badge.textContent = rep.valid ? `VALID · ${rep.entry_count} ENTRIES` : `BROKEN AT SEQ ${rep.broken_at_seq}`;
+      badge.style.color = rep.valid ? "var(--green)" : "var(--red)";
+      document.getElementById("btnExportCustody").disabled = false;
+
+      const pub = document.getElementById("custodyPubBox");
+      pub.classList.remove("hidden");
+      pub.textContent = `ED25519 VERIFYING KEY : ${rep.pubkey_hex}\nCHAIN HEAD BLAKE3     : ${rep.head_hash}`;
+
+      const tbody = document.getElementById("custodyBody");
+      if (!data.entries.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--fg-mute)">NO CUSTODY ENTRIES</td></tr>';
+      } else {
+        tbody.innerHTML = data.entries.map(e => `
+          <tr>
+            <td>#${e.seq}</td>
+            <td>${new Date(e.timestamp_utc * 1000).toISOString().replace(".000Z", "Z")}</td>
+            <td>SLOT ${e.slot}</td>
+            <td><span class="tag ok">${escapeHtml(e.event)}</span></td>
+            <td>${escapeHtml(e.detail)}</td>
+            <td style="color:var(--fg-dim)">${e.signature.slice(0, 16)}..</td>
+          </tr>
+        `).join("");
+      }
+      logEvent(rep.valid ? "OK" : "ERR", `Ed25519 Chain-of-Custody: ${rep.valid ? "VERIFIED" : rep.reason} (${rep.entry_count} entries)`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  function exportCustodyJson() {
+    if (!lastCustody) return;
+    const blob = new Blob([JSON.stringify(lastCustody, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "falcon-custody-trail.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadFile(path) {
+    clearAlert();
+    try {
+      const res = await api("/api/files/download?path=" + encodeURIComponent(path));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = path.split("/").pop() || "payload.bin";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      logEvent("OK", `Extracted & verified: ${path}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function deleteFile(path) {
+    if (!confirm(`${t("confirm_wipe")} '${path}'?`)) return;
+    clearAlert();
+    try {
+      await api("/api/files/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path })
+      });
+      showAlert("ok", `Wiped: ${path}`);
+      await refreshFiles();
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  function renderAuditMetrics(r) {
+    document.getElementById("auditMetrics").classList.remove("hidden");
+    setMetric("mPrim", r.primary_header_ok ? t("pass") : t("fail"), r.primary_header_ok);
+    setMetric("mBack", r.detached_header ? t("detached") : (r.backup_header_ok ? t("pass") : t("fail")), r.backup_header_ok);
+    setMetric("mSync", r.detached_header ? t("detached") : (r.headers_identical ? t("synced") : t("diverged")), r.headers_identical);
+    setMetric("mSectors", `${r.verified_sectors}/${r.total_sectors}`, r.corrupted_sectors.length === 0);
+  }
+
+  async function runVerify() {
+    clearAlert();
+    const btn = document.getElementById("btnRunAudit");
+    btn.disabled = true;
+    btn.textContent = t("btn_scanning");
+    try {
+      const r = await api("/api/verify", { method: "POST" });
+      r.audited_at_utc = new Date().toISOString();
+      lastAudit = r;
+      document.getElementById("btnExportAudit").disabled = false;
+      renderAuditMetrics(r);
+      renderSectorMap(r.total_sectors, r.corrupted_sectors);
+
+      const det = document.getElementById("auditDetail");
+      if (r.corrupted_sectors.length) {
+        det.classList.remove("hidden");
+        det.textContent = `TAMPERED SECTORS (${r.corrupted_sectors.length}): ${JSON.stringify(r.corrupted_sectors)}`;
+        showAlert("err", `TAMPER DETECTED: ${r.corrupted_sectors.length} sector(s).`);
+      } else {
+        det.classList.add("hidden");
+        if (r.clean) showAlert("ok", `Audit OK: ${r.verified_sectors}/${r.total_sectors} sectors verified.`);
+        else showAlert("warn", t("warn_backup"));
+      }
+    } catch (e) {
+      showAlert("err", e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = t("btn_audit");
+    }
+  }
+
+  function exportAuditReport() {
+    if (!lastAudit) return;
+    const blob = new Blob([JSON.stringify(lastAudit, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `falcon-audit-${(lastAudit.uuid || "report").slice(0, 8)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    logEvent("OK", "Exported JSON integrity audit report.");
+  }
+
+  function setMetric(id, text, ok) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = "mv " + (ok ? "ok" : "bad");
+  }
+
+  function renderSectorMap(total, corrupted) {
+    const wrap = document.getElementById("sectorMapWrap");
+    const map = document.getElementById("sectorMap");
+    wrap.classList.remove("hidden");
+    map.innerHTML = "";
+    const badSet = new Set(corrupted);
+    const cells = Math.min(total, 256);
+    const bucketSize = Math.max(1, Math.ceil(total / cells));
+
+    for (let i = 0; i < cells; i++) {
+      const start = i * bucketSize;
+      const end = Math.min(total - 1, start + bucketSize - 1);
+      let hasBad = false;
+      for (const s of badSet) { if (s >= start && s <= end) { hasBad = true; break; } }
+      const div = document.createElement("div");
+      div.className = "sec-cell " + (hasBad ? "bad" : "ok");
+      div.title = start === end
+        ? `Sector ${start}: ${hasBad ? "TAMPERED" : "OK"}`
+        : `Sectors ${start}-${end}: ${hasBad ? "TAMPER DETECTED" : "OK"}`;
+      map.appendChild(div);
+    }
+  }
+
+  async function repairHeaders() {
+    clearAlert();
+    try {
+      await api("/api/header/repair", { method: "POST" });
+      showAlert("ok", t("ok_repaired"));
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function addKeyslot() {
+    clearAlert();
+    const label = document.getElementById("slotLabel").value.trim() || "recovery";
+    const profile = document.getElementById("slotProfile").value;
+    const passphrase = document.getElementById("slotPass").value;
+    const keyfile_path = document.getElementById("slotKeyfile").value.trim() || null;
+    const pq_key_path = document.getElementById("slotPqKey").value.trim() || null;
+    if (!passphrase) return showAlert("err", t("err_empty_pass"));
+    try {
+      const r = await api("/api/keyslot/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, profile, passphrase, keyfile_path, pq_key_path })
+      });
+      document.getElementById("slotPass").value = "";
+      showAlert("ok", `Slot ${r.slot} provisioned (${label}).`);
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function addDuressSlot() {
+    clearAlert();
+    const label = document.getElementById("duressLabel").value.trim() || "backup";
+    const profile = document.getElementById("duressProfile").value;
+    const passphrase = document.getElementById("duressPass").value;
+    if (!passphrase) return showAlert("err", t("err_empty_pass"));
+    try {
+      const r = await api("/api/duress/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, profile, passphrase })
+      });
+      document.getElementById("duressPass").value = "";
+      showAlert("warn", `Duress slot ${r.slot} armed (decoy label: "${label}").`);
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function removeKeyslot(slot) {
+    if (!confirm(`${t("confirm_revoke")} ${slot}?`)) return;
+    clearAlert();
+    try {
+      await api("/api/keyslot/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot })
+      });
+      showAlert("ok", `Slot ${slot} revoked.`);
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function rotatePassphrase() {
+    clearAlert();
+    const p1 = document.getElementById("rotPass").value;
+    const p2 = document.getElementById("rotPass2").value;
+    const new_keyfile_path = document.getElementById("rotKeyfile").value.trim() || null;
+    const new_pq_key_path = document.getElementById("rotPqKey").value.trim() || null;
+    if (!p1) return showAlert("err", t("err_empty_pass"));
+    if (p1 !== p2) return showAlert("err", t("err_mismatch"));
+    try {
+      const r = await api("/api/passwd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_passphrase: p1, new_keyfile_path, new_pq_key_path })
+      });
+      document.getElementById("rotPass").value = "";
+      document.getElementById("rotPass2").value = "";
+      showAlert("ok", `Slot ${r.slot} credentials rotated.`);
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function shamirSplit() {
+    clearAlert();
+    const threshold = parseInt(document.getElementById("shThreshold").value, 10);
+    const shares = parseInt(document.getElementById("shTotal").value, 10);
+    const in_keyfile_path = document.getElementById("shInFile").value.trim() || null;
+    const out_keyfile_path = document.getElementById("shOutKey").value.trim() || null;
+    try {
+      const r = await api("/api/shamir/split", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threshold, shares, in_keyfile_path, out_keyfile_path })
+      });
+      const out = document.getElementById("shSharesOut");
+      out.classList.remove("hidden");
+      out.textContent = r.shares.join("\n");
+
+      lastKeycards = r.keycards_svg || [];
+      const grid = document.getElementById("shQrGrid");
+      if (lastKeycards.length) {
+        grid.classList.remove("hidden");
+        grid.innerHTML = lastKeycards.map((svg, idx) => {
+          const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+          return `<div class="qr-card">
+            <img src="${src}" alt="Share ${idx + 1}">
+            <button class="cmd xs" onclick="downloadKeycard(${idx})">DOWNLOAD SVG #${idx + 1}</button>
+          </div>`;
+        }).join("");
+      }
+      showAlert("ok", `Generated ${r.threshold}-of-${r.total} Shamir shares + air-gapped QR keycards.`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  function downloadKeycard(idx) {
+    const svg = lastKeycards[idx];
+    if (!svg) return;
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `falcon-share-${String(idx + 1).padStart(2, "0")}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function shamirCombine() {
+    clearAlert();
+    const lines = document.getElementById("shCombineIn").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const out_keyfile_path = document.getElementById("shCombineOut").value.trim();
+    if (!out_keyfile_path) return showAlert("err", t("err_dest"));
+    try {
+      const r = await api("/api/shamir/combine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shares: lines, out_keyfile_path })
+      });
+      showAlert("ok", `Reconstructed ${r.bytes}-byte keyfile at ${r.path}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function runBenchmark() {
+    clearAlert();
+    const btn = document.getElementById("btnBench");
+    const sectors = parseInt(document.getElementById("benchSectors").value, 10);
+    btn.disabled = true;
+    try {
+      const r = await api("/api/diag/benchmark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sectors })
+      });
+      document.getElementById("benchOut").classList.remove("hidden");
+      const maxRate = Math.max(r.aes_xts_mib_s, r.cascade_xts_mib_s, r.blake3_mac_mib_s, 1);
+      document.getElementById("bAes").textContent = r.aes_xts_mib_s.toFixed(1) + " MiB/s";
+      document.getElementById("bCas").textContent = r.cascade_xts_mib_s.toFixed(1) + " MiB/s";
+      document.getElementById("bMac").textContent = r.blake3_mac_mib_s.toFixed(1) + " MiB/s";
+      document.getElementById("barAes").style.width = Math.round((r.aes_xts_mib_s / maxRate) * 100) + "%";
+      document.getElementById("barCas").style.width = Math.round((r.cascade_xts_mib_s / maxRate) * 100) + "%";
+      document.getElementById("barMac").style.width = Math.round((r.blake3_mac_mib_s / maxRate) * 100) + "%";
+      logEvent("OK", `Benchmark (${r.sample_mib.toFixed(0)} MiB): AES=${r.aes_xts_mib_s.toFixed(1)}, Cascade=${r.cascade_xts_mib_s.toFixed(1)}, BLAKE3=${r.blake3_mac_mib_s.toFixed(1)} MiB/s`);
+    } catch (e) {
+      showAlert("err", e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function runEntropy() {
+    clearAlert();
+    const path = document.getElementById("entPath").value.trim();
+    if (!path) return showAlert("err", t("err_path_pass"));
+    try {
+      const r = await api("/api/diag/entropy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path })
+      });
+      document.getElementById("entMetrics").classList.remove("hidden");
+      setMetric("eScore", r.shannon_bits_per_byte.toFixed(5), r.shannon_bits_per_byte >= 7.98);
+      setMetric("eMean", r.byte_mean.toFixed(2), Math.abs(r.byte_mean - 127.5) < 3.0);
+      setMetric("eSpread", `${r.min_bucket_ratio.toFixed(2)}x..${r.max_bucket_ratio.toFixed(2)}x`, true);
+      setMetric("eMagic", r.has_visible_magic ? "FLCNDSK1" : "STEALTH / ZERO", !r.has_visible_magic);
+      logEvent("INFO", `Entropy(${path}): ${r.shannon_bits_per_byte.toFixed(5)} bits/byte, magic=${r.has_visible_magic}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function generateIdentity() {
+    clearAlert();
+    const callsign = document.getElementById("idCallsign").value.trim() || "OPERATOR";
+    const identity_path = document.getElementById("idPrivPath").value.trim();
+    const pub_path = document.getElementById("idPubPath").value.trim();
+    if (!identity_path || !pub_path) return showAlert("err", "Private .flcid and public .flcpub paths are required.");
+    try {
+      const r = await api("/api/identity/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callsign, identity_path, pub_path })
+      });
+      const box = document.getElementById("idOutBox");
+      box.classList.remove("hidden");
+      box.textContent = [
+        `CALLSIGN    : ${r.callsign}`,
+        `FINGERPRINT : ${r.fingerprint}`,
+        `ED25519 PUB : ${r.ed25519_pubkey}`,
+        `PRIVATE ID  : ${r.identity_path} (mode 0600)`,
+        `PUBLIC BNDL : ${r.pub_path}`
+      ].join("\n");
+      showAlert("ok", `Operator identity generated for ${r.callsign} (FP ${r.fingerprint})`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function sealDrop() {
+    clearAlert();
+    const input_path = document.getElementById("sealInPath").value.trim();
+    const to_pub_path = document.getElementById("sealToPub").value.trim();
+    const from_id_path = document.getElementById("sealFromId").value.trim();
+    const out_path = document.getElementById("sealOutPath").value.trim();
+    const sanitize = document.getElementById("sealSanitize").checked;
+    if (!input_path || !to_pub_path || !from_id_path || !out_path) {
+      return showAlert("err", "All four Seal Drop paths are required.");
+    }
+    try {
+      const r = await api("/api/seal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input_path, to_pub_path, from_id_path, out_path, sanitize })
+      });
+      const box = document.getElementById("sealOutBox");
+      box.classList.remove("hidden");
+      const sanTxt = r.sanitized ? `${r.sanitized.format} (${r.sanitized.segments_stripped} segs / ${r.sanitized.bytes_removed} B stripped)` : "OFF";
+      box.textContent = [
+        `SEALED DROP : ${r.out_path}`,
+        `FILENAME    : ${r.meta.filename} (${fmtBytes(r.meta.payload_bytes)})`,
+        `PACKAGE     : ${fmtBytes(r.meta.package_bytes)} (ML-KEM-1024 + AES-256-GCM + Ed25519)`,
+        `RECIPIENT   : FP ${r.meta.recipient_fingerprint}`,
+        `SENDER SIG  : ${r.meta.sender_ed25519_hex.slice(0, 32)}...`,
+        `OPSEC STRIP : ${sanTxt}`
+      ].join("\n");
+      showAlert("ok", `Sealed drop created -> ${r.out_path}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function unsealDrop() {
+    clearAlert();
+    const package_path = document.getElementById("unsealPkgPath").value.trim();
+    const identity_path = document.getElementById("unsealIdPath").value.trim();
+    const expect_sender_path = document.getElementById("unsealSenderPub").value.trim() || null;
+    const out_path = document.getElementById("unsealOutPath").value.trim();
+    if (!package_path || !identity_path || !out_path) {
+      return showAlert("err", "Package, recipient identity, and output path are required.");
+    }
+    try {
+      const r = await api("/api/unseal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ package_path, identity_path, expect_sender_path, out_path })
+      });
+      const box = document.getElementById("unsealOutBox");
+      box.classList.remove("hidden");
+      box.textContent = [
+        `VERIFIED & DECRYPTED -> ${r.out_path}`,
+        `ORIG NAME   : ${r.meta.filename} (${fmtBytes(r.meta.payload_bytes)})`,
+        `ED25519 SIG : VERIFIED (${r.meta.sender_ed25519_hex.slice(0, 32)}...)`,
+        `PINNED ID   : ${r.meta.sender_pinned_match ? "EXACT MATCH" : "UNPINNED (SIG VALID)"}`,
+        `OPSEC STRIP : ${r.meta.opsec_sanitized ? "YES" : "NO"}`
+      ].join("\n");
+      showAlert("ok", `Verified & unsealed drop -> ${r.out_path}`);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function shredActiveVolume() {
+    clearAlert();
+    const confirmText = document.getElementById("shredConfirm").value.trim();
+    if (confirmText !== "SHRED") return showAlert("err", t("err_shred_auth"));
+    if (!statusState || !statusState.path) return;
+    try {
+      await api("/api/shred", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: statusState.path,
+          detached_header_path: statusState.detached_header,
+          confirm: "SHRED"
+        })
+      });
+      document.getElementById("shredConfirm").value = "";
+      showAlert("ok", `CRYPTO-SHRED COMPLETE: ${statusState.path}`);
+      await refreshStatus(false);
+    } catch (e) {
+      showAlert("err", e.message);
+    }
+  }
+
+  async function openPicker(targetId, mode) {
+    pickerTarget = targetId;
+    pickerMode = mode;
+    document.getElementById("pickerUseDir").classList.toggle("hidden", mode !== "dir");
+    document.getElementById("pickerModal").classList.remove("hidden");
+    await loadDir(pickerDir || "");
+  }
+  function closePicker() { document.getElementById("pickerModal").classList.add("hidden"); }
+  function useCurrentDir() {
+    if (pickerTarget && pickerDir) {
+      document.getElementById(pickerTarget).value = pickerDir.replace(/\/$/, "") + "/vault.flc";
+    }
+    closePicker();
+  }
+
+  async function loadDir(dir) {
+    try {
+      const data = await api("/api/browse?dir=" + encodeURIComponent(dir));
+      pickerDir = data.dir;
+      document.getElementById("pickerDir").textContent = data.dir;
+      const list = document.getElementById("pickerList");
+      list.innerHTML = "";
+      if (data.parent) {
+        const up = document.createElement("div");
+        up.className = "dir-row";
+        up.innerHTML = `<span>../</span><span style="color:var(--fg-mute)">${t("parent")}</span>`;
+        up.onclick = () => loadDir(data.parent);
+        list.appendChild(up);
+      }
+      data.entries.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "dir-row";
+        row.innerHTML = `<span>${escapeHtml(item.name)}${item.is_dir ? "/" : ""}</span><span style="color:var(--fg-mute)">${item.is_dir ? t("dir") : fmtBytes(item.size)}</span>`;
+        row.onclick = () => {
+          if (item.is_dir) loadDir(item.path);
+          else if (pickerMode === "file") {
+            document.getElementById(pickerTarget).value = item.path;
+            closePicker();
+          }
+        };
+        list.appendChild(row);
+      });
+    } catch (e) {
+      showAlert("err", e.message);
+      closePicker();
+    }
+  }
+
+  const dz = document.getElementById("dropzone");
+  const fi = document.getElementById("fileInput");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("over");
+    if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+  });
+  fi.addEventListener("change", () => {
+    if (fi.files.length) uploadFiles(fi.files);
+    fi.value = "";
+  });
+
+  function openUpdateModal() {
+    document.getElementById("updateModal").classList.remove("hidden");
+    runUpdateCheck();
+  }
+  function closeUpdateModal() {
+    document.getElementById("updateModal").classList.add("hidden");
+  }
+
+  async function runUpdateCheck() {
+    const curEl = document.getElementById("updCurrent");
+    const latEl = document.getElementById("updLatest");
+    const msgEl = document.getElementById("updMsg");
+    const linkEl = document.getElementById("updLink");
+    curEl.textContent = "v" + ((statusState && statusState.app_version) || "0.4.0");
+    latEl.textContent = "CHECKING...";
+    latEl.className = "mv";
+    msgEl.textContent = "Checking GitHub Releases (manual request)...";
+    try {
+      const r = await api("/api/update/check", { method: "POST" });
+      curEl.textContent = "v" + r.current_version;
+      linkEl.href = r.release_url || r.releases_url;
+      if (r.latest_version) {
+        latEl.textContent = "v" + r.latest_version;
+        latEl.className = "mv " + (r.update_available ? "bad" : "ok");
+      } else {
+        latEl.textContent = r.status === "offline" ? "OFFLINE / NONE" : "NO RELEASE";
+        latEl.className = "mv";
+      }
+      msgEl.textContent = r.message + (r.published_at ? `\nPublished: ${r.published_at}` : "");
+      logEvent(r.update_available ? "WARN" : "INFO", `Update check: ${r.message}`);
+    } catch (e) {
+      latEl.textContent = "ERROR";
+      latEl.className = "mv bad";
+      msgEl.textContent = e.message;
+    }
+  }
+
+  function buildSanitizedBugText() {
+    const ver = (statusState && statusState.app_version) || "0.4.0";
+    const plat = (statusState && statusState.platform) || navigator.platform || "unknown";
+    const post = statusState && statusState.post_report
+      ? `${statusState.post_report.passed ? "PASS" : "FAIL"} (${statusState.post_report.checks.length}/${statusState.post_report.checks.length}, ${statusState.post_report.duration_ms.toFixed(2)} ms)`
+      : "UNKNOWN";
+    return [
+      "### Environment (Auto-Sanitized — Zero Keys/Paths)",
+      `- Falcon Version: v${ver}`,
+      `- Platform: ${plat}`,
+      `- FIPS 140-3 POST: ${post}`,
+      `- Interface: Localhost Console (${theme.toUpperCase()} / ${lang.toUpperCase()})`,
+      "",
+      "### Description",
+      "(Describe what happened)",
+      "",
+      "### Steps to Reproduce",
+      "1. ",
+      "2. ",
+      ""
+    ].join("\n");
+  }
+
+  function openBugModal() {
+    document.getElementById("bugDiagBox").value = buildSanitizedBugText();
+    document.getElementById("bugModal").classList.remove("hidden");
+  }
+  function closeBugModal() {
+    document.getElementById("bugModal").classList.add("hidden");
+  }
+  async function copyBugReport() {
+    const txt = document.getElementById("bugDiagBox").value;
+    try {
+      await navigator.clipboard.writeText(txt);
+      showAlert("ok", "Sanitized diagnostic report copied to clipboard.");
+    } catch (_) {
+      document.getElementById("bugDiagBox").select();
+      document.execCommand("copy");
+      showAlert("ok", "Sanitized diagnostic report copied.");
+    }
+  }
+  function submitGithubBug() {
+    const base = (statusState && statusState.issues_url) || "https://github.com/skotinas/falcon/issues/new";
+    const rawTitle = document.getElementById("bugTitle").value.trim();
+    const title = rawTitle ? `[BUG] ${rawTitle}` : "[BUG] ";
+    const body = document.getElementById("bugDiagBox").value;
+    const url = `${base}?template=bug_report.md&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    logEvent("INFO", "Opened sanitized GitHub Bug Report form.");
+  }
+
+  document.getElementById("unlockPass").addEventListener("keydown", e => { if (e.key === "Enter") unlockVolume(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closePicker();
+      closeUpdateModal();
+      closeBugModal();
+      return;
+    }
+    const anyModal = !document.getElementById("pickerModal").classList.contains("hidden")
+      || !document.getElementById("updateModal").classList.contains("hidden")
+      || !document.getElementById("bugModal").classList.contains("hidden");
+    if (anyModal) return;
+    const gate = document.getElementById("entryGate");
+    if (gate && !gate.classList.contains("hidden")) {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "SELECT" || tag === "INPUT") return;
+      if (e.key === "1") enterConsole("access", "unlockPath");
+      else if (e.key === "2") enterConsole("access", "createPath");
+      else if (e.key === "3") enterConsole("drops", "idCallsign");
+      else if (e.key === "4") enterConsole("shamir");
+      else if (e.key === "Enter") enterConsole("access");
+    }
+  });
+
+  if (window.location.search.includes("token=")) {
+    window.history.replaceState({}, document.title, "/");
+  }
+
+  const skipEntry = localStorage.getItem("falcon_skip_entry") === "1";
+  document.getElementById("chkSkipEntry").checked = skipEntry;
+  if (skipEntry) document.getElementById("entryGate").classList.add("hidden");
+
+  applyTheme(theme);
+  applyTranslations();
+  logEvent("INFO", t("log_ready"));
+  refreshStatus(false);
+
+  // Poll status every 3s while unlocked so USB Kill-Switch trips reflect immediately in UI
+  setInterval(() => {
+    if (statusState && statusState.unlocked) {
+      api("/api/status").then(st => {
+        if (!st.unlocked) {
+          statusState = st;
+          renderStatus(st);
+          selectView("access");
+        }
+      }).catch(() => {});
+    }
+  }, 3000);
+</script>
+</body>
+</html>

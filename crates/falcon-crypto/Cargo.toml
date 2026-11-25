@@ -1,0 +1,32 @@
+[package]
+name = "falcon-crypto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aes.workspace = true
+aes-gcm.workspace = true
+argon2.workspace = true
+blake3.workspace = true
+ed25519-dalek.workspace = true
+hex.workspace = true
+hkdf.workspace = true
+ml-kem.workspace = true
+qrcode.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serpent.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+xts-mode.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true

@@ -1,0 +1,15 @@
+# Rust build artifacts
+/target/
+
+# macOS Finder / editor junk
+.DS_Store
+*.swp
+*.swo
+
+# Sensitive Falcon volumes, keys, identities & drops (never commit)
+*.flc
+*.fhdr
+*.key
+*.pqkey
+*.flcid
+*.flcpack
